@@ -189,7 +189,7 @@ with tab_ord:
                 widget_key = f"num_input_{key}_ord"
 
                 # Active Input
-                if key in def_vals_ord[def_opt_ord]['Inputs']:
+                if key in def_list_ord[def_opt_ord]['Inputs']:
 
                     # Restore previous or use default
                     if widget_key in st.session_state:
