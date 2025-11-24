@@ -1,7 +1,10 @@
 def RandomRVE(W, H, N_fibers, VF, min_gap_subcells, tol, max_iter_radius, periodic=False):
 
+    # Import libraries
     import numpy as np
-    from scipy.ndimage import label, binary_dilation
+
+    # Import Functions
+    from Segmented.Segmented import Segmented
 
     # ================================================================
     # 1. Compute initial analytical radius from target VF
@@ -142,43 +145,6 @@ def RandomRVE(W, H, N_fibers, VF, min_gap_subcells, tol, max_iter_radius, period
         return r, mask, vf
     
     # ================================================================
-    # 5. Re-enforce the min gap
-    # ================================================================
-    def enforce_min_gap_subcells(mask, min_gap):
-        """
-        Remove only subcells where fibers are touching others, iteratively,
-        ensuring no fiber subcells are closer than min_gap.
-        """
-        new_mask = mask.copy()
-        fiber_mask = (new_mask == 1)
-        
-        # Label connected fiber regions
-        labeled_fibers, num_fibers = label(fiber_mask)
-        
-        # Structuring element slightly larger to catch diagonal touches
-        selem = np.ones((2*min_gap+2, 2*min_gap+2), dtype=bool)
-        
-        changes = True
-        while changes:
-            changes = False
-            fiber_mask = (new_mask == 1)
-            labeled_fibers, num_fibers = label(fiber_mask)
-            
-            for i in range(1, num_fibers+1):
-                this_fiber = (labeled_fibers == i)
-                dilated = binary_dilation(this_fiber, structure=selem)
-                
-                # Overlaps with other fibers
-                overlap = dilated & (fiber_mask & ~this_fiber)
-                
-                if np.any(overlap):
-                    new_mask[overlap] = 2
-                    changes = True  # Repeat check until no overlaps
-
-        return new_mask
-
-
-    # ================================================================
     # ----- MAIN EXECUTION -----
     # ================================================================
     r0 = compute_initial_radius(W, H, N_fibers, VF)
@@ -196,18 +162,24 @@ def RandomRVE(W, H, N_fibers, VF, min_gap_subcells, tol, max_iter_radius, period
         periodic=periodic
     )
 
-    mask = enforce_min_gap_subcells(mask, min_gap_subcells)
+    # Create an image
+    img = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
 
-    # ================================================================
-    # Output dictionary (same structure as your original)
-    # ================================================================
-    out = {
-        'VF': vf_final,
-        'R': r_final,
-        'NB': mask.shape[1],
-        'NG': mask.shape[0],
-        'F': 1,
-        'M': 2
-    }
+    # Map mask values to colors
+    img[mask == 1] = [0, 0, 255]    # Blue fibers
+    img[mask == 2] = [255, 255, 255]  # White matrix
+
+    # Run Segmented Algorithm
+    Input = {
+                'Image':img,
+                'ReductionSize':None,
+                'W':W,
+                'L':H,
+                'Colors':[255, 0, 0], #BGR
+                'MaxNub':2,
+                'MaxCorner':2,
+                'TouchOption': 1,
+                }
+    mask, out = Segmented(Input)    
 
     return mask, out
