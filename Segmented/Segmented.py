@@ -1,4 +1,26 @@
 def Segmented(Input):
+    """
+    Generate a microstructure from a segemented image. In the input, specify either the
+    reduction size or W and L 
+
+    Arguments:
+        Input  dict   dictionary containing all inputs
+         -- Contains
+            img             image       image read using opencv
+            ReductionSize   float       amount to reduce the image (between 0 and 1)
+            W               int         desired width of the image
+            L               int         desired width of the image
+            Colors          3x1 array   BGR color of the fiber
+            MaxNub          int         maxmimum nub size to allow
+            MaxCorner       int         maximum corner size to allow
+            TouchOption     int         0 - leave boundaries alone, 1 - remove subcells of fibers
+                                        at touching bondaries
+    Outputs:
+        mask    2D array    integer array defining the microstructure
+        out     dict        dictionary of actual microstructure properties
+    """
+
+
     # Import modules
     import cv2
     import numpy as np
@@ -624,7 +646,6 @@ def Segmented(Input):
 
         return rads
         
-
     # Load the Original Image
     image = Input['Image']
 
@@ -635,16 +656,16 @@ def Segmented(Input):
     conv_color = color[::-1]
 
     # Split the image
-    output, markers = split_touching_circles(image, color)
+    __, markers = split_touching_circles(image, color)
 
     # Fit Circles to Fibers
-    fitted, fitted_pts = fit_circles_from_markers(markers, image.shape)
+    __, fitted_pts = fit_circles_from_markers(markers, image.shape)
     
     # Remove intersections
     fitted_pts = get_intersecting_boundaries(fitted_pts)
 
     # Generate Masks and New Images
-    img_disp, img_all, img_ind, masks = generate_new_image(image, fitted_pts)
+    __, img_all, __, masks = generate_new_image(image, fitted_pts)
 
     # Resize the image and labels
     resized_img, resized_masks = resize_image(img_all, masks)
@@ -652,7 +673,7 @@ def Segmented(Input):
     # Fill Gaps
     resized_img, resized_masks = fill_gaps(resized_img, resized_masks, conv_color)
 
-    # 9 .Remove Rouching Fibers
+    # Remove Touching Fibers
     if Input['TouchOption'] == True:
         results = touching_pixels(resized_masks)
         for res in results.keys():
@@ -679,7 +700,6 @@ def Segmented(Input):
         mask[m == 1] = 1  # Label fibers as one
 
     # Create Output
-    # Calculate actual values
     out = {
             'VF':None,
            'NB':None,

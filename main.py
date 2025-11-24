@@ -33,7 +33,7 @@ from Write.WriteCSV import WriteCSV
 from Write.WriteRUC import WriteRUC
 from Read.ReadCSV import ReadCSV
 from Read.ReadRUC import ReadRUC
-from Random.RandomRVE import RandomRVE
+from Random.RandomSBD import RandomSBD
 from Segmented.Segmented import Segmented
 
 #------------------------------------------------------------------------------------------------------------------------------------------
@@ -69,7 +69,7 @@ with tab_ord:
                 type and input parameters to visualize and download the RUC data.""")
 
     # Initialize the function
-    func = None
+    func_ord = None
 
     # Create columns for microstructure and definition selection
     col_ord_def_1, col_ord_def_2 = st.columns([1, 1])
@@ -89,17 +89,19 @@ with tab_ord:
     if micro_opt_ord == "Hexagonal":
 
         # -- Create default values
-        def_vals = {
-                'VF':[1, 'float', 0.001, 0., math.pi / (2*math.sqrt(3)), 0.6],
-                'R':[2, 'float', 0.001, 0., None, 10.],
-                'NB':[1, 'int', 1, 1, None, 10],
-                'NG':[2, 'int', 1, 1, None, 10],
-                'F':[1,'int', 1, 1, None, 1],
-                'M':[2,'int', 1, 1, None, 2],
+        def_vals_ord = {
+                    # Col   Type        Step    Min     Max                         Default Display Name    
+                'VF':[1,    'float',    0.001,  0.,     math.pi / (2*math.sqrt(3)), 0.6,    'VF'    ],
+                'R' :[2,    'float',    0.001,  0.,     None,                       10.,    'R'     ],
+                'NB':[1,    'int',      1,      1,      None,                       10,     'NB'    ],
+                'NG':[2,    'int',      1,      1,      None,                       10,     'NG'    ],
+                'F' :[1,    'int',      1,      1,      None,                       1,      'F'     ],
+                'M' :[2,    'int',      1,      1,      None,                       2,      'M'     ],
                 }
 
         # -- Create defintion list
-        def_list = {"Volume Fraction & Subcell Dimensions":{
+        def_list_ord = {
+                    "Volume Fraction & Subcell Dimensions":{
                                                             'Inputs':['VF','NB','F','M'],
                                                             'Function':Hex1
                                                             }, 
@@ -117,17 +119,19 @@ with tab_ord:
     elif micro_opt_ord == "Square":
         
         # -- Create default values
-        def_vals = {
-                'VF':[1, 'float', 0.001, 0., math.pi / 4, 0.6],
-                'R':[2, 'float', 0.001, 0., None, 10.],
-                'NB':[1, 'int', 1, 1, None, 10],
-                'NG':[2, 'int', 1, 1, None, 10],
-                'F':[1,'int', 1, 1, None, 1],
-                'M':[2,'int', 1, 1, None, 2],
+        def_vals_ord = {
+                    # Col   Type        Step    Min     Max             Default Display Name   
+                'VF':[1,    'float',    0.001,  0.,     math.pi / 4,    0.6,    'VF'    ],
+                'R' :[2,    'float',    0.001,  0.,     None,           10.,    'R'     ],
+                'NB':[1,    'int',      1,      1,      None,           10,     'NB'    ],
+                'NG':[2,    'int',      1,      1,      None,           10,     'NG'    ],
+                'F' :[1,    'int',      1,      1,      None,           1,      'F'     ],
+                'M' :[2,    'int',      1,      1,      None,           2,      'M'     ],
                 }
 
         # -- Create defintion list
-        def_list = {"Volume Fraction & Subcell Dimensions":{
+        def_list_ord = {
+                    "Volume Fraction & Subcell Dimensions":{
                                                             'Inputs':['VF','NB','F','M'],
                                                             'Function':Square1
                                                             }, 
@@ -143,13 +147,13 @@ with tab_ord:
         
     # Empty dictionary for option not selected    
     else:
-        def_list = {}
+        def_list_ord = {}
 
     # Create definition selection
     with col_ord_def_2:
         def_opt_ord = st.selectbox(
                         "Select an input type:", 
-                        list(def_list.keys()),
+                        list(def_list_ord.keys()),
                         key = 'def_opt_ord',
                         )
 
@@ -160,32 +164,32 @@ with tab_ord:
     if def_opt_ord:
 
         # Get the function and initalize values
-        func = def_list[def_opt_ord]['Function']
+        func_ord = def_list_ord[def_opt_ord]['Function']
         values = {}
 
         # Separeate numeric inputs into two columns
         col_ord_inp_1, col_ord_inp_2 = st.columns([1, 1])
 
         # Create numeric inputs
-        for key in def_vals.keys():
+        for key in def_vals_ord.keys():
 
             # Determine column
-            colnum = col_ord_inp_1 if def_vals[key][0] == 1 else col_ord_inp_2
+            colnum = col_ord_inp_1 if def_vals_ord[key][0] == 1 else col_ord_inp_2
 
             with colnum:
 
-                # Get min, max, step, default
-                min_v = def_vals[key][3]
-                max_v = def_vals[key][4]
-                step = def_vals[key][2]
-                default = def_vals[key][5]
+                # Get min, max, step, default, and display name
+                step = def_vals_ord[key][2]
+                min_v = def_vals_ord[key][3]
+                max_v = def_vals_ord[key][4]
+                default = def_vals_ord[key][5]
+                disp_name = def_vals_ord[key][6]
 
                 # Set widget key
                 widget_key = f"num_input_{key}_ord"
 
-                # Populate Values
-                if key in def_list[def_opt_ord]['Inputs']:
-                    # -- ACTIVE input
+                # Active Input
+                if key in def_vals_ord[def_opt_ord]['Inputs']:
 
                     # Restore previous or use default
                     if widget_key in st.session_state:
@@ -199,9 +203,9 @@ with tab_ord:
                     else:
                         val = default
 
-                    # Render input (this updates session_state automatically)
+                    # Render input 
                     values[key] = st.number_input(
-                        key,
+                        disp_name,
                         key=widget_key,
                         value=val,
                         step=step,
@@ -209,21 +213,22 @@ with tab_ord:
                         max_value=max_v,
                     )
 
+                #   Inactive Input
                 else:
-                    # -- INACTIVE input 
                 
                     # Remove its session state
                     if widget_key in st.session_state:
                         del st.session_state[widget_key]
 
-                    # Use a disabled text field that LOOKS empty
+                    # Use a disabled text field that looks empty
                     st.text_input(key, value="", disabled=True, key = key+"_ord")
 
+                    # Reset value to None
                     values[key] = None
                             
 
     # Generate and display the RUC
-    if func is not None:
+    if func_ord is not None:
 
         # -- Create columns for organization
         col_ord_out_1, col_ord_out_2, col_ord_out_3, col_ord_out_4, __ = st.columns([1, 1, 1, 1, 7])
@@ -262,16 +267,16 @@ with tab_ord:
                 )
             st.write("")
 
-        # If generate is clicked, run function and save mask in session_state
+        # Create microstructure
         if generate_clicked_ord:
             func_values = {}
             flag = 0
             for key in values.keys():
-                if key in def_list[def_opt_ord]['Inputs']:
+                if key in def_list_ord[def_opt_ord]['Inputs']:
                     func_values[key] = values[key]
-            st.session_state['mask_ord'] = func(**func_values)
+            st.session_state['mask_ord'] = func_ord(**func_values)
 
-        # Only plot if we have a mask
+        # Plot
         if 'mask_ord' in st.session_state:
             mask, out = st.session_state['mask_ord']
 
@@ -359,7 +364,6 @@ with tab_ord:
                 key="download_ruc_ord"
             )
 
-
 #------------------------------------------------------------------------------------------------------------------------------------------
 #   RANDOM MICROSTRUCTURE
 #   Generate a periodic or non-periodic random microstructure.
@@ -373,78 +377,111 @@ with tab_rand:
     # Create description
     st.markdown("""Generate a random Repeating Unit Cell (RUC) microstructure based on user-defined parameters. 
                 Select the input parameters to visualize and download the RUC data.""")
-
-    # Initialize the function
-    func = None
+    
+    # Initialize Function
+    func_rand = None
     
     # Create columns for microstructure and definition selection
-    col_rand_def_1, col_rand_def_2 = st.columns([1, 1])
+    col_rand_alg_1, col_alg_def_2 = st.columns([1, 1])
 
     # Create input for microstructure type
-    num_gen_rand = st.number_input(
-                        'Number of Random Generations',
-                        key='num_gen_rand',
-                        value=1,
-                        step=1,
-                        min_value=1,
-                        max_value=None,
+    with col_rand_alg_1:
+        alg_opt_rand = st.selectbox(
+                            "Select an algorithm:",
+                                [
+                                    "Soft Body Dynamics", 
+                                ],
+                            key = 'alg_opt_rand',
                         )
-    
-    with col_rand_def_1:
-        vf_rand = st.number_input(
-                        'Volume Fraction',
-                        key='vf_rand',
-                        value=0.5,
-                        step=0.01,
-                        min_value=0.01,
-                        max_value=0.65,
-                        )
-        num_NB_rand = st.number_input(
-                        'NB',
-                        key='num_NB_rand',
-                        value=100,
-                        step=1,
-                        min_value=1,
-                        max_value=None,
-                        )
-        min_gap_rand = st.number_input(
-                        'Minimum Gap Between Fibers',
-                        key='min_gap_rand',
-                        value=1,
-                        step=1,
-                        min_value=1,
-                        max_value=None,
-                        )
+
+    # Hexagonal Pack Definition
+    if alg_opt_rand == "Soft Body Dynamics":
+
+        # -- Create default values
+        def_vals_rand = {
+                            # Col   Type        Step    Min     Max     Default Display Name 
+                'VF'        :[1,    'float',    0.001,  0.,     0.99,   0.6,    'VF'                        ],
+                'N_fibers'  :[2,    'int',      1,      1,      None,   16,     'Number of Fibers'          ],
+                'W'         :[1,    'int',      1,      1,      None,   100,    'NB'                        ],
+                'H'         :[2,    'int',      1,      1,      None,   100,    'NG'                        ],
+                'k'         :[1,    'float',    0.1,    0.0,    None,   5000.,  'Stiffness (k)'             ],
+                'damping'   :[2,    'float',    0.1,    0.0,    1.,     0.5,    'Damping (c)'               ],
+                'dt'        :[1,    'float',    1.0e-3, 0.0,    None,   0.01,   '\u0394t'                   ],
+                'steps'     :[2,    'int',      1,      1,      None,   5000,   'Steps'                     ],
+                'n_gen'     :[1,    'int',      1,      1,      None,   1,      'Number of microstructures' ],
+                            # Col   Type    List            Display Name 
+                'periodic'  :[2,    'disc', [True, False], 'Periodic'],
+                }
         
-    # Create definition selection
-    with col_rand_def_2:
-        num_fib_rand = st.number_input(
-                        'Number of Fibers',
-                        key='num_fib_rand',
-                        value=16,
-                        step=1,
-                        min_value=1,
-                        max_value=None,
-                        )
-        num_NG_rand = st.number_input(
-                        'NG',
-                        key='num_NG_rand',
-                        value=100,
-                        step=1,
-                        min_value=1,
-                        max_value=None,
-                        )
-        max_iter_rand = st.number_input(
-                        'Maximum Radius Resize Iterations',
-                        key='max_iter_rand',
-                        value=20,
-                        step=1,
-                        min_value=1,
-                        max_value=None,
+        func_rand = RandomSBD
+
+    # Separate user inputs
+    st.markdown('''---''')
+
+    # Create user inputs
+    if func_rand is not None:
+
+        # Get the function and initalize values
+        values = {}
+
+        # Separeate numeric inputs into two columns
+        col_rand_inp_1, col_rand_inp_2 = st.columns([1, 1])
+
+        # Create numeric inputs
+        for key in def_vals_rand.keys():
+
+            # Determine column
+            colnum = col_rand_inp_1 if def_vals_rand[key][0] == 1 else col_rand_inp_2
+
+            with colnum:
+
+                if def_vals_rand[key][1] in ['float', 'int']:
+
+                    # Get min, max, step, default, and display name
+                    step = def_vals_rand[key][2]
+                    min_v = def_vals_rand[key][3]
+                    max_v = def_vals_rand[key][4]
+                    default = def_vals_rand[key][5]
+                    disp_name = def_vals_rand[key][6]
+
+                    # Set widget key
+                    widget_key = f"num_input_{key}_rand"
+
+                    # Restore previous or use default
+                    if widget_key in st.session_state:
+                        val = st.session_state[widget_key]
+
+                        # Clamp if needed
+                        if min_v is not None and val < min_v:
+                            val = min_v
+                        if max_v is not None and val > max_v:
+                            val = max_v
+                    else:
+                        val = default
+
+                    # Render input (this updates session_state automatically)
+                    values[key] = st.number_input(
+                        disp_name,
+                        key=widget_key,
+                        value=val,
+                        step=step,
+                        min_value=min_v,
+                        max_value=max_v,
+                    )
+
+                elif def_vals_rand[key][1] in ['disc']:
+                    widget_key = f"disc_input_{key}_rand"
+                    opts = def_vals_rand[key][2]
+                    disp_name = def_vals_rand[key][3]
+
+                    values[key] = st.selectbox(
+                            disp_name,
+                            opts,
+                            key=widget_key,
                         )
         
     # -- Create columns for organization
-    col_rand_gen_1, col_rand_gen_2, __ = st.columns([1, 1, 9])
+    col_rand_gen_1, __, __ = st.columns([1, 1, 9])
 
     # -- Create the generate RUC button
     with col_rand_gen_1:
@@ -452,30 +489,10 @@ with tab_rand:
         generate_random = st.button("Generate RVEs", key = 'gen_button_rand')
         st.write("")
 
-    # -- Create the gridline checkbox
-    with col_rand_gen_2:
-        st.markdown(f'<div style="height:{36}px"></div>', unsafe_allow_html=True)
-        enf_per_rand = st.checkbox("Enforce Periodicity", value=True, key='enf_per_rand')
-        st.write("")
-    
     # Generate RUCs
     if generate_random:
-        # Generate multiple RUCs
-        masks = []
         with st.spinner("Generating RUCs..."):
-    
-            for i in range(int(num_gen_rand)):
-                mask, out = RandomRVE(
-                                        W = int(num_NB_rand),
-                                        H = int(num_NG_rand),
-                                        N_fibers = int(num_fib_rand),
-                                        VF = vf_rand,
-                                        min_gap_subcells = int(min_gap_rand),
-                                        tol = 1e-3,
-                                        max_iter_radius = int(max_iter_rand),
-                                        periodic=enf_per_rand
-                                    )
-                masks.append((f'RVE {i+1}',mask, out))
+            masks = func_rand(**values)
 
         # Save generated RUCs to session state
         st.session_state['masks_rand'] = masks
@@ -591,15 +608,41 @@ with tab_rand:
                 st.markdown("")
                 st.dataframe(df, key = 'out_table_rand', hide_index=True)
 
-            # Create Files
-            csv_data = WriteCSV(mask)
-            ruc_data = WriteRUC(mask)
+            # Generate summay information
+            st.markdown("---")
+            st.write("Summary:")
 
+            # Calculate averages and standard deviations
+            out_sum = {
+                'VF':[],
+                'R':[],
+                'NB':[],
+                'NG':[],
+                }
+            
+            for name, mask, out in masks:
+                for key in out_sum.keys():
+                    out_sum[key].append(out[key])
+
+            for key in out_sum.keys():
+                out_sum[key] = [np.average(out_sum[key]), np.std(out_sum[key])]
+
+            # Format into dataframe
+            rows = []
+            for key, value_list in out_sum.items():
+                v1, v2 = value_list  # unpack the two items
+                rows.append([key, v1, v2])
+
+            df_out = pd.DataFrame(rows, columns=["Parameter", "Average", "Standard Deviation"])
+
+            # Create columns for the summary table
+            col_rand_sum_1,  __ = st.columns([6.5, 3.5])
+            with col_rand_sum_1:
+                st.dataframe(df_out, hide_index=True)
+        
             # Create columns for downloading data
             col_rand_dwnld_1, col_rand_dwnld_2, __ = st.columns([1, 1.2, 9])
-
-            # Generate summay file
-
+                
             # Generate CSV Files
             def generate_zip_with_masks_csv(masks):
                 zip_buffer = io.BytesIO()
@@ -612,7 +655,6 @@ with tab_rand:
 
             zip_bytes_csv = generate_zip_with_masks_csv(st.session_state['masks_rand'])
             
-
             # Download to CSV
             with col_rand_dwnld_1:
                     st.download_button(
@@ -644,7 +686,6 @@ with tab_rand:
                 mime="application/zip",
                 key = "download_ruc_rand"
                 )
-                    
 
 #------------------------------------------------------------------------------------------------------------------------------------------
 #   GENERATED MICROSTRUCTURE FROM IMAGE
@@ -668,6 +709,7 @@ with tab_img:
         file_bytes = np.frombuffer(uploaded_file.read(), np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)  # BGR
 
+        # -- Create columns for organization
         col_img_disp_1, col_img_disp_2, col_img_disp_3 = st.columns([1.2, 1, 1])
 
         with col_img_disp_1:

@@ -1,4 +1,15 @@
 def WriteCSV(mask):
+    """
+    Generate a CSV of the mask.
+
+    Arguments:
+        mask        2D array    integer array defining the microstructure
+
+    Outputs:
+        csv_data    str         str for streamlit to write to csv
+    """
+
+    # Import Modules
     import pandas as pd
     from io import StringIO
 

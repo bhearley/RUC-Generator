@@ -1,4 +1,15 @@
 def WriteRUC(mask):
+    """
+    Generate the *RUC portion of a NASMAT input deck to *.txt
+
+    Arguments:
+        mask        2D array    integer array defining the microstructure
+
+    Outputs:
+        ruc_data    str         str for streamlit to write to txt
+    """
+
+    # Begin writing the text data
     ruc_data = '*RUC\n'
     ruc_data = ruc_data + f" MOD={202} ARCHID={99} \n"
 
