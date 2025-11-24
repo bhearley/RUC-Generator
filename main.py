@@ -410,7 +410,7 @@ with tab_rand:
         min_gap_rand = st.number_input(
                         'Minimum Gap Between Fibers',
                         key='min_gap_rand',
-                        value=3,
+                        value=1,
                         step=1,
                         min_value=1,
                         max_value=None,
@@ -597,6 +597,8 @@ with tab_rand:
 
             # Create columns for downloading data
             col_rand_dwnld_1, col_rand_dwnld_2, __ = st.columns([1, 1.2, 9])
+
+            # Generate summay file
 
             # Generate CSV Files
             def generate_zip_with_masks_csv(masks):
