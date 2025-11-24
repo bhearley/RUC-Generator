@@ -18,6 +18,7 @@ import io
 import math
 import numpy as np
 import pandas as pd
+from PIL import Image, ImageColor
 import plotly.graph_objects as go
 import streamlit as st
 import zipfile
@@ -399,16 +400,17 @@ with tab_rand:
 
         # -- Create default values
         def_vals_rand = {
-                            # Col   Type        Step    Min     Max     Default Display Name 
-                'VF'        :[1,    'float',    0.001,  0.,     0.99,   0.6,    'VF'                        ],
-                'N_fibers'  :[2,    'int',      1,      1,      None,   16,     'Number of Fibers'          ],
-                'W'         :[1,    'int',      1,      1,      None,   100,    'NB'                        ],
-                'H'         :[2,    'int',      1,      1,      None,   100,    'NG'                        ],
-                'k'         :[1,    'float',    0.1,    0.0,    None,   5000.,  'Stiffness (k)'             ],
-                'damping'   :[2,    'float',    0.1,    0.0,    1.,     0.5,    'Damping (c)'               ],
-                'dt'        :[1,    'float',    1.0e-3, 0.0,    None,   0.01,   '\u0394t'                   ],
-                'steps'     :[2,    'int',      1,      1,      None,   5000,   'Steps'                     ],
-                'n_gen'     :[1,    'int',      1,      1,      None,   1,      'Number of microstructures' ],
+                            # Col   Type        Step    Min     Max     Default Display Name                Format
+                'VF'        :[1,    'float',    0.001,  0.,     0.99,   0.6,    'VF',                       "%.3f"  ],
+                'N_fibers'  :[2,    'int',      1,      1,      None,   16,     'Number of Fibers',         "%d"    ],
+                'W'         :[1,    'int',      1,      1,      None,   100,    'NB',                       "%d"    ],
+                'H'         :[2,    'int',      1,      1,      None,   100,    'NG',                       "%d"    ],
+                'k'         :[1,    'float',    0.1,    0.0,    None,   5000.,  'Stiffness (k)',            "%.3f"  ],
+                'damping'   :[2,    'float',    1.0e-3, 1.0e-3, 0.999,  0.5,    'Damping (c)',              "%.3f"  ],
+                'dt'        :[1,    'float',    1.0e-6, 1.0e-6, None,   0.01,   '\u0394t',                  "%.6f"  ],
+                'steps'     :[2,    'int',      1,      1,      None,   5000,   'Steps',                    "%d"    ],
+                'min_gap'   :[1,    'int',      1,      0,      None,   1,      'Minimum Gap Between Fiber',"%d"    ],
+                #'n_gen'     :[1,    'int',      1,      1,      None,   1,      'Number of microstructures',"%d"    ],
                             # Col   Type    List            Display Name 
                 'periodic'  :[2,    'disc', [True, False], 'Periodic'],
                 }
@@ -443,6 +445,7 @@ with tab_rand:
                     max_v = def_vals_rand[key][4]
                     default = def_vals_rand[key][5]
                     disp_name = def_vals_rand[key][6]
+                    frmt = def_vals_rand[key][7]
 
                     # Set widget key
                     widget_key = f"num_input_{key}_rand"
@@ -459,7 +462,7 @@ with tab_rand:
                     else:
                         val = default
 
-                    # Render input (this updates session_state automatically)
+                    # Render input 
                     values[key] = st.number_input(
                         disp_name,
                         key=widget_key,
@@ -467,6 +470,7 @@ with tab_rand:
                         step=step,
                         min_value=min_v,
                         max_value=max_v,
+                        format= frmt
                     )
 
                 elif def_vals_rand[key][1] in ['disc']:
@@ -480,6 +484,46 @@ with tab_rand:
                             key=widget_key,
                         )
         
+    # Create number of generations input
+    st.markdown("---")
+    col_rand_inp_3, __ = st.columns([4, 6])
+    with col_rand_inp_3:
+
+        # Get min, max, step, default, and display name
+        step = 1
+        min_v = 1
+        max_v = None
+        default = 1
+        disp_name = 'Number of Random Generations'
+        frmt = "%d"
+        key = 'n_gen'
+
+        # Set widget key
+        widget_key = f"num_input_{key}_rand"
+
+        # Restore previous or use default
+        if widget_key in st.session_state:
+            val = st.session_state[widget_key]
+
+            # Clamp if needed
+            if min_v is not None and val < min_v:
+                val = min_v
+            if max_v is not None and val > max_v:
+                val = max_v
+        else:
+            val = default
+
+        # Render input 
+        values[key] = st.number_input(
+            disp_name,
+            key=widget_key,
+            value=val,
+            step=step,
+            min_value=min_v,
+            max_value=max_v,
+            format= frmt
+        )
+
     # -- Create columns for organization
     col_rand_gen_1, __, __ = st.columns([1, 1, 9])
 
@@ -641,7 +685,7 @@ with tab_rand:
                 st.dataframe(df_out, hide_index=True)
         
             # Create columns for downloading data
-            col_rand_dwnld_1, col_rand_dwnld_2, __ = st.columns([1, 1.2, 9])
+            col_rand_dwnld_1, col_rand_dwnld_2, col_rand_dwnld_3, __ = st.columns([1, 1.2, 1.2, 7.8])
                 
             # Generate CSV Files
             def generate_zip_with_masks_csv(masks):
@@ -665,13 +709,23 @@ with tab_rand:
                     key = "download_csv_rand"
                     )
 
-            # Generate CSV Files
+            # Generate RUC Files
             def generate_zip_with_masks_ruc(masks):
                 zip_buffer = io.BytesIO()
-                with zipfile.ZipFile(zip_buffer, "w") as zip_file:
+                all_texts = []
+
+                with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
                     for name, mask, _ in masks:
-                        txt_content = WriteRUC(mask)  # Get .txt content from mask
+                        txt_content = WriteRUC(mask)  # returns string
                         zip_file.writestr(f"{name}.txt", txt_content)
+
+                        # accumulate for the combined file (add a header so it's readable)
+                        all_texts.append(f"#--- {name}.txt ---\n{txt_content}\n")
+
+                    # Create combined file
+                    combined_text = "\n".join(all_texts)
+                    zip_file.writestr("RVE_ALL.txt", combined_text)
+
                 zip_buffer.seek(0)
                 return zip_buffer
 
@@ -685,6 +739,52 @@ with tab_rand:
                 file_name="RVEs_MAC.zip",
                 mime="application/zip",
                 key = "download_ruc_rand"
+                )
+
+            # Download images
+            def parse_color_to_rgb(color_str):
+                """Safely parse hex, rgb(), rgba(), or named CSS colors."""
+                return ImageColor.getrgb(color_str)
+            
+            def generate_zip_with_all_mask_images(masks, fiber_color, matrix_color, scale=255):
+                fiber_rgb = parse_color_to_rgb(fiber_color)
+                matrix_rgb = parse_color_to_rgb(matrix_color)
+
+                zip_buffer = io.BytesIO()
+
+                with zipfile.ZipFile(zip_buffer, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+
+                    for name, mask, _ in masks:
+
+                        H, W = mask.shape
+                        img = np.zeros((H, W, 3), dtype=np.uint8)
+
+                        img[mask == 1] = fiber_rgb
+                        img[mask == 2] = matrix_rgb
+
+                        img_pil = Image.fromarray(img)
+                        img_bytes = io.BytesIO()
+                        img_pil.save(img_bytes, format="PNG")
+                        img_bytes.seek(0)
+
+                        zipf.writestr(f"{name}.png", img_bytes.read())
+
+                zip_buffer.seek(0)
+                return zip_buffer
+            
+            # Download for *RUC
+            with col_rand_dwnld_3:
+                zip_bytes = generate_zip_with_all_mask_images(
+                    masks,
+                    st.session_state['fiber_color_rand'],
+                    st.session_state['matrix_color_rand']
+                )
+                
+                st.download_button(
+                    label="Download All Images",
+                    data=zip_bytes,
+                    file_name="All_RVE_Images.zip",
+                    mime="application/zip",
                 )
 
 #------------------------------------------------------------------------------------------------------------------------------------------
