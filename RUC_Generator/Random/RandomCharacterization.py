@@ -8,7 +8,7 @@ def RandomCharacterization(mask, nbins = 10):
     # ------------------------------
     # Separate fibers and get centers
     # ------------------------------
-    def separate_fibers(mask, min_circular_coverage=300, area_min_factor=0.5, area_max_factor=2.0):
+    def separate_fibers(mask, min_circular_coverage=1, area_min_factor=0.0, area_max_factor=1.e6):
         """
         Separates fibers in a mask and computes centers.
         - Watershed split for irregular fibers.
