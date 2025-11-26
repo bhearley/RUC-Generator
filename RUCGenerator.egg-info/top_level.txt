@@ -1,6 +1,0 @@
-Hexagonal
-Random
-Read
-Segmented
-Square
-Write
