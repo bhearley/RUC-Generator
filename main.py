@@ -46,7 +46,7 @@ from Segmented.Segmented import Segmented
 st.set_page_config(layout="wide")
 
 # Create the title
-st.title("2D NASMAT RUC Generator")
+st.title("2D NASMAT RUC Generator test")
 
 # Create description
 st.markdown("""The 2D NASMAT RUC Generator is used to generate and visualize microstructres and corresponding *RUC files compatible with 
