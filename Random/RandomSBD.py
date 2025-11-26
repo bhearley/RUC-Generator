@@ -1,4 +1,4 @@
-def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, min_gap = 1, n_gen = 1, periodic = True):
+def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, min_gap = 1, n_gen = 1, periodic = True, seed = None):
     """
     Generate a random microstructure using soft body dynamics
 
@@ -21,6 +21,9 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, min_gap = 1, n_gen = 1,
 
     # Import Modules
     import numpy as np
+
+    if seed is not None:
+        np.random.seed(int(seed)) 
 
     # Function to initialize fiber positions
     def initialize_fibers(W, H, N, VF):
