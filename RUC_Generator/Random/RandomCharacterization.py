@@ -14,6 +14,7 @@ def RandomCharacterization(mask, nbins = 10):
 
         final_label_map = np.zeros_like(labels)
         current_id = 1
+        H, W = mask.shape
 
         for lbl in range(1, num_labels):
             blob = (labels == lbl).astype(np.uint8)
@@ -53,7 +54,32 @@ def RandomCharacterization(mask, nbins = 10):
             ys, xs = np.where(final_label_map == fid)
             if len(xs) == 0:
                 continue
-            centers.append((xs.mean(), ys.mean()))
+
+            # Check if the fiber touches the boundary
+            touches_boundary = (xs.min() == 0 or xs.max() == W-1 or ys.min() == 0 or ys.max() == H-1)
+
+            if not touches_boundary:
+                # Regular centroid
+                cx, cy = xs.mean(), ys.mean()
+            else:
+                # Fit a circle to interior points (exclude boundary points)
+                interior_mask = (xs > 0) & (xs < W-1) & (ys > 0) & (ys < H-1)
+                if interior_mask.sum() >= 3:  # Need at least 3 points for circle fit
+                    x_in, y_in = xs[interior_mask], ys[interior_mask]
+                    # Fit circle using least squares
+                    A = np.c_[2*x_in, 2*y_in, np.ones_like(x_in)]
+                    b = x_in**2 + y_in**2
+                    sol = np.linalg.lstsq(A, b, rcond=None)[0]
+                    cx, cy = sol[0], sol[1]  # circle center
+                else:
+                    # fallback to regular centroid if not enough interior points
+                    cx, cy = xs.mean(), ys.mean()
+
+                # Ensure the center is inside the image
+                cx = np.clip(cx, 0, W-1)
+                cy = np.clip(cy, 0, H-1)
+
+            centers.append((cx, cy))
 
         centers = np.array(centers)
         return final_label_map, centers
