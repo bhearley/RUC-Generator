@@ -8,12 +8,13 @@ def RandomCharacterization(mask, nbins = 10):
     # ------------------------------
     # Separate fibers and get centers
     # ------------------------------
-    def separate_fibers(mask, min_circular_coverage=300):
+    def separate_fibers(mask, min_circular_coverage=300, area_min_factor=0.5, area_max_factor=2.0):
         """
         Separates fibers in a mask and computes centers.
-        For boundary fibers, fits a circle to points and includes center
-        only if coverage >= min_circular_coverage degrees.
-        
+        - Watershed split for irregular fibers.
+        - Boundary fibers included if mostly circular.
+        - Ignores fibers that are extreme outliers in area.
+
         Returns:
             final_label_map: labeled fiber mask
             centers: array of fiber centers (x, y)
@@ -41,16 +42,38 @@ def RandomCharacterization(mask, nbins = 10):
         final_label_map = np.zeros_like(labels)
         current_id = 1
 
+        # Compute areas of all blobs
+        areas = []
+        for lbl in range(1, num_labels):
+            blob = (labels == lbl).astype(np.uint8)
+            if blob.sum() == 0:
+                areas.append(0)
+                continue
+            cnts, _ = cv2.findContours(blob, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if len(cnts) == 0:
+                areas.append(0)
+                continue
+            cnt = cnts[0]
+            areas.append(cv2.contourArea(cnt))
+        areas = np.array(areas)
+        median_area = np.median(areas)
+        area_min = area_min_factor * median_area
+        area_max = area_max_factor * median_area
+
         for lbl in range(1, num_labels):
             blob = (labels == lbl).astype(np.uint8)
             if blob.sum() == 0:
                 continue
-
             cnts, _ = cv2.findContours(blob, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             if len(cnts) == 0:
                 continue
             cnt = cnts[0]
             area = cv2.contourArea(cnt)
+
+            # Skip outliers
+            if area < area_min or area > area_max:
+                continue
+
             perimeter = cv2.arcLength(cnt, True)
             circularity = 4 * np.pi * area / (perimeter**2 + 1e-8)
             needs_watershed = circularity < 0.75
@@ -80,7 +103,6 @@ def RandomCharacterization(mask, nbins = 10):
             if len(xs) == 0:
                 continue
 
-            # Check if fiber touches boundary
             touches_boundary = (xs.min() == 0 or xs.max() == W-1 or ys.min() == 0 or ys.max() == H-1)
             if touches_boundary:
                 coverage, center, _ = circle_coverage(xs, ys)
@@ -89,7 +111,7 @@ def RandomCharacterization(mask, nbins = 10):
                     cx = np.clip(cx, 0, W-1)
                     cy = np.clip(cy, 0, H-1)
                     centers.append((cx, cy))
-                    continue  # skip centroid fallback
+                    continue
 
             # Default: centroid
             centers.append((xs.mean(), ys.mean()))
