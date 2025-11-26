@@ -153,5 +153,5 @@ def RandomCharacterization(mask, nbins = 10):
     tri, local_vf = delaunay_and_vf(mask, centers)
     mean_vf, iqr_vf, bin_centers, pdf, bin_indices, fc_triangles, mrc_triangles = identify_fc_mrc(mask, tri, centers, local_vf, nbins = nbins, n_smooth_iter=1)
 
-    return mean_vf, iqr_vf, bin_centers, pdf, centers, tri
+    return mean_vf, iqr_vf, bin_centers, pdf, centers, tri, local_vf
 
