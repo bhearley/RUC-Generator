@@ -8,13 +8,38 @@ def RandomCharacterization(mask, nbins = 10):
     # ------------------------------
     # Separate fibers and get centers
     # ------------------------------
-    def separate_fibers(mask):
+    def separate_fibers(mask, min_circular_coverage=300):
+        """
+        Separates fibers in a mask and computes centers.
+        For boundary fibers, fits a circle to points and includes center
+        only if coverage >= min_circular_coverage degrees.
+        
+        Returns:
+            final_label_map: labeled fiber mask
+            centers: array of fiber centers (x, y)
+        """
+        def circle_coverage(xs, ys):
+            """Fit circle and compute angular coverage in degrees."""
+            if len(xs) < 3:
+                return 0, None, None
+            A = np.c_[2*xs, 2*ys, np.ones_like(xs)]
+            b = xs**2 + ys**2
+            sol, _, _, _ = np.linalg.lstsq(A, b, rcond=None)
+            xc, yc, c = sol
+            r = np.sqrt(c + xc**2 + yc**2)
+            angles = np.arctan2(ys - yc, xs - xc)
+            angles = np.sort(angles)
+            gaps = np.diff(np.concatenate([angles, [angles[0] + 2*np.pi]]))
+            max_gap = gaps.max()
+            coverage = 360 * (1 - max_gap / (2*np.pi))
+            return coverage, (xc, yc), r
+
+        H, W = mask.shape
         fiber = (mask == 1).astype(np.uint8)
         num_labels, labels = cv2.connectedComponents(fiber, connectivity=4)
 
         final_label_map = np.zeros_like(labels)
         current_id = 1
-        H, W = mask.shape
 
         for lbl in range(1, num_labels):
             blob = (labels == lbl).astype(np.uint8)
@@ -35,7 +60,7 @@ def RandomCharacterization(mask, nbins = 10):
                 current_id += 1
                 continue
 
-            # Watershed split
+            # Watershed split for irregular fibers
             dist = cv2.distanceTransform(blob, cv2.DIST_L2, 5)
             _, sure_fg = cv2.threshold(dist, 0.45 * dist.max(), 1, 0)
             sure_fg = sure_fg.astype(np.uint8)
@@ -55,31 +80,19 @@ def RandomCharacterization(mask, nbins = 10):
             if len(xs) == 0:
                 continue
 
-            # Check if the fiber touches the boundary
+            # Check if fiber touches boundary
             touches_boundary = (xs.min() == 0 or xs.max() == W-1 or ys.min() == 0 or ys.max() == H-1)
+            if touches_boundary:
+                coverage, center, _ = circle_coverage(xs, ys)
+                if coverage >= min_circular_coverage:
+                    cx, cy = center
+                    cx = np.clip(cx, 0, W-1)
+                    cy = np.clip(cy, 0, H-1)
+                    centers.append((cx, cy))
+                    continue  # skip centroid fallback
 
-            if not touches_boundary:
-                # Regular centroid
-                cx, cy = xs.mean(), ys.mean()
-            else:
-                # Fit a circle to interior points (exclude boundary points)
-                interior_mask = (xs > 0) & (xs < W-1) & (ys > 0) & (ys < H-1)
-                if interior_mask.sum() >= 3:  # Need at least 3 points for circle fit
-                    x_in, y_in = xs[interior_mask], ys[interior_mask]
-                    # Fit circle using least squares
-                    A = np.c_[2*x_in, 2*y_in, np.ones_like(x_in)]
-                    b = x_in**2 + y_in**2
-                    sol = np.linalg.lstsq(A, b, rcond=None)[0]
-                    cx, cy = sol[0], sol[1]  # circle center
-                else:
-                    # fallback to regular centroid if not enough interior points
-                    cx, cy = xs.mean(), ys.mean()
-
-                # Ensure the center is inside the image
-                cx = np.clip(cx, 0, W-1)
-                cy = np.clip(cy, 0, H-1)
-
-            centers.append((cx, cy))
+            # Default: centroid
+            centers.append((xs.mean(), ys.mean()))
 
         centers = np.array(centers)
         return final_label_map, centers
