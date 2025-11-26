@@ -47,17 +47,7 @@ def RandomCharacterization(mask, nbins = 10):
             if len(xs) == 0:
                 continue
 
-            touches_boundary = (xs.min() == 0 or xs.max() == W-1 or ys.min() == 0 or ys.max() == H-1)
-            if touches_boundary:
-                coverage, center, _ = circle_coverage(xs, ys)
-                if coverage >= min_circular_coverage:
-                    cx, cy = center
-                    cx = np.clip(cx, 0, W-1)
-                    cy = np.clip(cy, 0, H-1)
-                    centers.append((cx, cy))
-                    continue
-
-            # Default: centroid
+            # centroid calculation
             centers.append((xs.mean(), ys.mean()))
 
         centers = np.array(centers)

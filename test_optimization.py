@@ -47,18 +47,26 @@ VF = np.sum(mask == 1) / (len(mask) * len(mask[0]))
 mean_vf, iqr_vf, bin_centers, pdf, centers, tri, local_vf = RandomCharacterization(mask, nbins)
 
 # Plot
-# -- Create the figure
+# -- Create copies for plotting
+mask_plot = mask.copy()
+centers_plot = centers.copy()
+
+# -- Rotate only if width < height
+if mask_plot.shape[1] < mask_plot.shape[0]:
+    mask_plot = np.rot90(mask_plot)
+    centers_plot = centers_plot[:, [1, 0]]  # Swap x and y for scatter/triangles
+
+# -- Plot
 fig = plt.figure(constrained_layout=True, figsize=(10, 6))
 gs = fig.add_gridspec(2, 2)
 
-# -- Plot the microstructure and triangulation
 ax1 = fig.add_subplot(gs[0, 0])
-ax1.imshow(mask, cmap='Blues', origin='lower')
-ax1.scatter(centers[:,0], centers[:,1], color='green', s=30)
+ax1.imshow(mask_plot, cmap='Blues', origin='lower')
+ax1.scatter(centers_plot[:,0], centers_plot[:,1], color='green', s=30)
 
 # Draw triangles
 for simplex in tri.simplices:
-    pts = centers[simplex]
+    pts = centers_plot[simplex]
     polygon = plt.Polygon(pts, fill=None, edgecolor='black', linewidth=2)
     ax1.add_patch(polygon)
 
