@@ -24,18 +24,18 @@ import streamlit as st
 import zipfile
 
 # Import Functions
-from Hexagonal.Hex1 import Hex1
-from Hexagonal.Hex2 import Hex2
-from Hexagonal.Hex3 import Hex3
-from Square.Square1 import Square1
-from Square.Square2 import Square2
-from Square.Square3 import Square3
-from Write.WriteCSV import WriteCSV
-from Write.WriteRUC import WriteRUC
-from Read.ReadCSV import ReadCSV
-from Read.ReadRUC import ReadRUC
-from Random.RandomSBD import RandomSBD
-from Segmented.Segmented import Segmented
+from RUC_Generator.Hexagonal.Hex1 import Hex1
+from RUC_Generator.Hexagonal.Hex2 import Hex2
+from RUC_Generator.Hexagonal.Hex3 import Hex3
+from RUC_Generator.Square.Square1 import Square1
+from RUC_Generator.Square.Square2 import Square2
+from RUC_Generator.Square.Square3 import Square3
+from RUC_Generator.Write.WriteCSV import WriteCSV
+from RUC_Generator.Write.WriteRUC import WriteRUC
+from RUC_Generator.Read.ReadCSV import ReadCSV
+from RUC_Generator.Read.ReadRUC import ReadRUC
+from RUC_Generator.Random.RandomSBD import RandomSBD
+from RUC_Generator.Segmented.Segmented import Segmented
 
 #------------------------------------------------------------------------------------------------------------------------------------------
 #   GENERAL SETUP
