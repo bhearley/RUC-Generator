@@ -1,4 +1,4 @@
-def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, min_gap = 1, n_gen = 1, periodic = True, seed = None):
+def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, mass = 1.0, min_gap = 1, n_gen = 1, periodic = True, seed = None):
     """
     Generate a random microstructure using soft body dynamics
 
@@ -131,7 +131,7 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, min_gap = 1, n_gen = 1,
         # Run simulation
         centers_final = soft_particle_md_periodic(centers, radius, W, H,
                                                 damping=damping, dt=dt,
-                                                steps=steps, k=k, min_gap=min_gap)
+                                                steps=steps, k=k, mass = mass, min_gap=min_gap)
 
         # Voxelate
         mask = voxelate_periodic_rve(centers_final, radius, W, H)

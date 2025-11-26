@@ -15,14 +15,16 @@ from baybe.objectives import SingleTargetObjective
 import numpy as np
 import pandas as pd
 import random
+import matplotlib.pyplot as plt
+import matplotlib.tri as mtri
 
 # Import Functions
-from Random.RandomSBD import RandomSBD
-from Random.RandomCharacterization import RandomCharacterization
+from RUC_Generator.Random.RandomSBD import RandomSBD
+from RUC_Generator.Random.RandomCharacterization import RandomCharacterization
 
 
 # Define Input Structure
-file_path = r"C:\Users\bhearley\Downloads\random_example.csv"
+file_path = r"E:\Projects\PMC Digital Twin Creation\Documentation\actual.csv"
 mask = np.loadtxt(file_path, delimiter=",", dtype=int)
 
 # Define Run Settings
@@ -40,6 +42,33 @@ k = 5000
 dt = 0.01
 steps = 5000
 VF = np.sum(mask == 1) / (len(mask) * len(mask[0]))
+
+# Characterize
+mean_vf, iqr_vf, bin_centers, pdf, centers, tri, local_vf = RandomCharacterization(mask, nbins)
+
+# Plot
+# -- Create the figure
+fig = plt.figure(constrained_layout=True, figsize=(10, 6))
+gs = fig.add_gridspec(2, 2)
+
+# -- Plot the microstructure and triangulation
+ax1 = fig.add_subplot(gs[0, 0])
+ax1.imshow(mask, cmap='Blues', origin='lower')
+ax1.scatter(centers[:,0], centers[:,1], color='green', s=30)
+
+# Draw triangles
+for simplex in tri.simplices:
+    pts = centers[simplex]
+    polygon = plt.Polygon(pts, fill=None, edgecolor='black', linewidth=2)
+    ax1.add_patch(polygon)
+
+ax1.set_title("Dulaney Triangulation")
+
+plt.show()
+
+temp = 1
+
+
 
 # Define Parameters
 params = [
