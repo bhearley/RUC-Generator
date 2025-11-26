@@ -406,11 +406,12 @@ with tab_rand:
                 'W'         :[1,    'int',      1,      1,      None,   100,    'NB',                       "%d"    ],
                 'H'         :[2,    'int',      1,      1,      None,   100,    'NG',                       "%d"    ],
                 'k'         :[1,    'float',    0.1,    0.0,    None,   5000.,  'Stiffness (k)',            "%.3f"  ],
-                'damping'   :[2,    'float',    1.0e-3, 1.0e-3, 0.999,  0.5,    'Damping (c)',              "%.3f"  ],
-                'dt'        :[1,    'float',    1.0e-6, 1.0e-6, None,   0.01,   '\u0394t',                  "%.6f"  ],
-                'steps'     :[2,    'int',      1,      1,      None,   5000,   'Steps',                    "%d"    ],
-                'min_gap'   :[1,    'int',      1,      0,      None,   1,      'Minimum Gap Between Fiber',"%d"    ],
-                #'n_gen'     :[1,    'int',      1,      1,      None,   1,      'Number of microstructures',"%d"    ],
+                'dt'        :[2,    'float',    1.0e-6, 1.0e-6, None,   0.01,   '\u0394t',                  "%.6f"  ],
+                'damping'   :[1,    'float',    1.0e-3, 0.,     0.999,  0.5,    'Damping (c)',              "%.3f"  ],
+                'gamma'     :[2,    'float',    1.0e-3, 0.,     None,   1.0,    'Friction Coefficient',     "%.3f"  ],
+                'steps'     :[1,    'int',      1,      1,      None,   10000,  'Maxmimum Iteratiaons',     "%d"    ],
+                'min_gap'   :[2,    'int',      1,      0,      None,   1,      'Minimum Gap Between Fiber',"%d"    ],
+                'n_gen'     :[1,    'int',      1,      1,      None,   1,      'Number of microstructures',"%d"    ],
                             # Col   Type    List            Display Name 
                 'periodic'  :[2,    'disc', [True, False], 'Periodic'],
                 }
@@ -484,45 +485,45 @@ with tab_rand:
                             key=widget_key,
                         )
         
-    # Create number of generations input
-    st.markdown("---")
-    col_rand_inp_3, __ = st.columns([4, 6])
-    with col_rand_inp_3:
+    # # Create number of generations input
+    # st.markdown("---")
+    # col_rand_inp_3, __ = st.columns([4, 6])
+    # with col_rand_inp_3:
 
-        # Get min, max, step, default, and display name
-        step = 1
-        min_v = 1
-        max_v = None
-        default = 1
-        disp_name = 'Number of Random Generations'
-        frmt = "%d"
-        key = 'n_gen'
+    #     # Get min, max, step, default, and display name
+    #     step = 1
+    #     min_v = 1
+    #     max_v = None
+    #     default = 1
+    #     disp_name = 'Number of Random Generations'
+    #     frmt = "%d"
+    #     key = 'n_gen'
 
-        # Set widget key
-        widget_key = f"num_input_{key}_rand"
+    #     # Set widget key
+    #     widget_key = f"num_input_{key}_rand"
 
-        # Restore previous or use default
-        if widget_key in st.session_state:
-            val = st.session_state[widget_key]
+    #     # Restore previous or use default
+    #     if widget_key in st.session_state:
+    #         val = st.session_state[widget_key]
 
-            # Clamp if needed
-            if min_v is not None and val < min_v:
-                val = min_v
-            if max_v is not None and val > max_v:
-                val = max_v
-        else:
-            val = default
+    #         # Clamp if needed
+    #         if min_v is not None and val < min_v:
+    #             val = min_v
+    #         if max_v is not None and val > max_v:
+    #             val = max_v
+    #     else:
+    #         val = default
 
-        # Render input 
-        values[key] = st.number_input(
-            disp_name,
-            key=widget_key,
-            value=val,
-            step=step,
-            min_value=min_v,
-            max_value=max_v,
-            format= frmt
-        )
+    #     # Render input 
+    #     values[key] = st.number_input(
+    #         disp_name,
+    #         key=widget_key,
+    #         value=val,
+    #         step=step,
+    #         min_value=min_v,
+    #         max_value=max_v,
+    #         format= frmt
+    #     )
 
     # -- Create columns for organization
     col_rand_gen_1, __, __ = st.columns([1, 1, 9])

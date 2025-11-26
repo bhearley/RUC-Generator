@@ -1,4 +1,4 @@
-def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, mass = 1.0, min_gap = 1, n_gen = 1, periodic = True, seed = None):
+def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps = 50000, gamma = 1.0, mass = 1.0, min_gap = 1, n_gen = 1, periodic = True, seed = None):
     """
     Generate a random microstructure using soft body dynamics
 
@@ -11,6 +11,7 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, mass = 1.0, min_gap = 1
         k           float       particle stiffness
         dt          float       time step
         steps       int         number of steps
+        gamma       float       friction coefficient
         min_gap     int         minimum allowed gap between fibers
         n_gen       int         number of microstructures to generate
         periodic    boolean     flag to enforce periodicity
@@ -33,8 +34,21 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, mass = 1.0, min_gap = 1
         return centers, radius
 
     # function to run soft body dynamics simulation
-    def soft_particle_md_periodic(centers, radius, W, H, damping=0.9, dt=0.01,
-                                steps=1000, k=1000.0, mass=1.0, min_gap = 1):
+    def soft_particle_md_periodic(
+                                centers, 
+                                radius, 
+                                W, 
+                                H, 
+                                damping=0.9,
+                                gamma = 1.0, 
+                                dt=0.01,
+                                steps=50_000, 
+                                k=1000.0, 
+                                mass=1.0, 
+                                min_gap = 1,
+                                periodic = True,
+                                v_tol = 1e-6
+                                ):
         """
         Soft-force, force-based MD simulation for fibers in a periodic box.
 
@@ -48,37 +62,39 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, mass = 1.0, min_gap = 1
         mass : particle mass
         """
         N = centers.shape[0]
-        velocities = (np.random.rand(N,2)-0.5)*2  # initial random velocities
+        velocities = (np.random.rand(N,2) - 0.5) * 2   # random initial velocity
 
         for step in range(steps):
             forces = np.zeros_like(centers)
 
-            # Compute pairwise overlap forces
+            # ---------- Fiber–fiber forces ----------
             for i in range(N):
                 for j in range(i+1, N):
+
                     dx = centers[j,0] - centers[i,0]
                     dy = centers[j,1] - centers[i,1]
 
-                    # Minimal image for periodicity
-                    if dx > W/2: dx -= W
-                    if dx < -W/2: dx += W
-                    if dy > H/2: dy -= H
-                    if dy < -H/2: dy += H
+                    # periodic minimum-image convention
+                    if periodic:
+                        if dx > W/2: dx -= W
+                        if dx < -W/2: dx += W
+                        if dy > H/2: dy -= H
+                        if dy < -H/2: dy += H
 
                     dist = np.hypot(dx, dy)
-                    min_dist = 2*radius + min_gap  # collision threshold
+                    min_dist = 2*radius + min_gap
                     overlap = min_dist - dist
 
                     if overlap > 0:
-                        # normalized collision vector
+                        # normalized collision direction
                         if dist > 0:
                             nx, ny = dx/dist, dy/dist
                         else:
                             nx, ny = np.random.rand(2)-0.5
-                            norm = np.hypot(nx, ny)
-                            nx, ny = nx/norm, ny/norm
+                            nrm = np.hypot(nx, ny)
+                            nx, ny = nx/nrm, ny/nrm
 
-                        # repulsive force
+                        # --- Repulsive force ---
                         f = k * overlap
                         fx, fy = f * nx, f * ny
                         forces[i,0] -= fx
@@ -86,18 +102,78 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, mass = 1.0, min_gap = 1
                         forces[j,0] += fx
                         forces[j,1] += fy
 
-            # Update velocities
-            velocities += forces/mass * dt
-            velocities *= damping  # apply damping
+                        # --- Collision damping (stickiness) ---
+                        if damping > 0:
+                            # relative velocity
+                            dvx = velocities[j,0] - velocities[i,0]
+                            dvy = velocities[j,1] - velocities[i,1]
 
-            # Update positions
+                            # normal component of relative velocity
+                            vrel = dvx * nx + dvy * ny
+
+                            if vrel > 0:  # only damp if they are separating/compressing along normal
+                                reduction = damping * vrel
+
+                                # apply opposite impulses
+                                velocities[i,0] += reduction * nx
+                                velocities[i,1] += reduction * ny
+                                velocities[j,0] -= reduction * nx
+                                velocities[j,1] -= reduction * ny
+
+            # ---------- Drag / friction ----------
+            # F_drag = -gamma * v
+            forces -= gamma * velocities
+
+            # ---------- Update velocities ----------
+            velocities += (forces / mass) * dt
+
+            # ---------- Check convergence ----------
+            if np.all(np.linalg.norm(velocities, axis=1) < v_tol):
+                # velocities are essentially zero
+                break
+
+            # ---------- Update positions ----------
             centers += velocities * dt
 
-            # Periodic boundaries
-            centers[:,0] %= W
-            centers[:,1] %= H
+            # ---------- Boundary conditions ----------
+            if periodic:
+                centers[:,0] %= W
+                centers[:,1] %= H
+            else:
+                # clip to walls (soft walls optional)
+                centers[:,0] = np.clip(centers[:,0], radius+min_gap, W-radius-min_gap)
+                centers[:,1] = np.clip(centers[:,1], radius+min_gap, H-radius-min_gap)
 
-        return centers
+        total_overlap_area = 0.0
+        R = radius
+
+        for i in range(N):
+            for j in range(i+1, N):
+
+                dx = centers[j,0] - centers[i,0]
+                dy = centers[j,1] - centers[i,1]
+
+                # periodic minimum image
+                if periodic:
+                    if dx > W/2: dx -= W
+                    if dx < -W/2: dx += W
+                    if dy > H/2: dy -= H
+                    if dy < -H/2: dy += H
+
+                d = np.hypot(dx, dy)
+
+                # physical overlap uses only 2R, not min_gap
+                if d < 2*R:
+                    # circle-circle overlap area
+                    A = (
+                        2 * R*R * np.arccos(d / (2*R))
+                        - 0.5 * d * np.sqrt(max(4*R*R - d*d, 0.0))
+                    )
+                    total_overlap_area += A
+        overlap_pct = total_overlap_area/(W*H)
+
+        return centers, overlap_pct
+
 
     # Function to voxelate the microstructure
     def voxelate_periodic_rve(centers, radius, W, H):
@@ -129,9 +205,20 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, mass = 1.0, min_gap = 1
         centers, radius = initialize_fibers(W, H, N_fibers, VF)
 
         # Run simulation
-        centers_final = soft_particle_md_periodic(centers, radius, W, H,
-                                                damping=damping, dt=dt,
-                                                steps=steps, k=k, mass = mass, min_gap=min_gap)
+        centers_final, overlap_pct = soft_particle_md_periodic(
+                                                            centers, 
+                                                            radius, 
+                                                            W, 
+                                                            H, 
+                                                            damping=damping,
+                                                            gamma = gamma, 
+                                                            dt=dt,
+                                                            steps=steps, 
+                                                            k=k, 
+                                                            mass=mass, 
+                                                            min_gap = min_gap,
+                                                            periodic = periodic,
+                                                            )
 
         # Voxelate
         mask = voxelate_periodic_rve(centers_final, radius, W, H)
@@ -143,7 +230,8 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, mass = 1.0, min_gap = 1
             'NB':None,
             'NG':None,
             'F':1,
-            'M':2
+            'M':2,
+            'Overlap':None
             }
         
         # Calculate Volume Fraction
@@ -156,11 +244,12 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps, mass = 1.0, min_gap = 1
         out['NB'] = W
         out['NG'] = H
 
+        # Define Overlap
+        out['Overlap'] = overlap_pct
+
         # Add to list
         masks.append((f'RVE {i+1}',mask, out))
 
     return masks
-
-    
 
     
