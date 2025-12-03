@@ -1,71 +1,90 @@
-def Square2(VF, R, F, M):
+def Square2(VF, R, F, M, VI=None, RI=None, I=None):
     """
-    Generate a square pack microstructure by defining the volume fraction and radius in subcells.
+    Generate a square pack microstructure with optional interface region.
+    The interface can be specified either by thickness (RI) or volume fraction (VI).
 
     Arguments:
-        VF  float   desired volume fraction
+        VF  float   desired fiber volume fraction
         R   float   radius of the fiber in subcells
         F   int     material ID of the fiber
         M   int     material ID of the matrix
-    
+        VI  float   optional interface volume fraction (cannot be used with RI)
+        RI  float   optional interface thickness (cannot be used with VI)
+        I   int     optional interface material ID (default 3)
+
     Outputs:
         mask    2D array    integer array defining the microstructure
         out     dict        dictionary of actual microstructure properties
-
     """
 
-    # Import modules
     import numpy as np
 
-    # Calculate the spacing vector length
-    nx = np.sqrt((np.pi*R**2/VF))
+    # --- Validate input ---
+    if VI is not None and RI is not None:
+        raise ValueError("Specify either VI or RI, not both.")
+    if I is None:
+        I = 3
+
+    # --- Compute grid size ---
+    if VI is not None:
+        # Compute interface thickness from desired volume fraction
+        # First, initial nx based on fiber area only
+        nx_guess = np.sqrt(np.pi * R**2 / VF)
+        # Total area of RVE
+        A_total = nx_guess**2
+        # Interface area = VI * total area
+        A_interface = VI * A_total
+        # Outer radius of interface
+        R_outer = np.sqrt(R**2 + A_interface / np.pi)
+        nx = np.sqrt(np.pi * R_outer**2 / (VF + VI))
+        RI_thickness = R_outer - R
+    elif RI is not None:
+        R_outer = R + RI
+        nx = np.sqrt(np.pi * R_outer**2 / (VF + (np.pi * RI**2 / (R_outer**2) * (VF + 0))))  # approximate VI
+        RI_thickness = RI
+    else:
+        # No interface
+        R_outer = R
+        nx = np.sqrt(np.pi * R**2 / VF)
+        RI_thickness = 0
+
     ny = nx
     center = [nx/2, ny/2]
 
-    # Define Bounding Box
-    xmin = 0
-    xmax = nx
-    ymin = 0
-    ymax = ny
-
-    # Define grid resolution
+    # Grid extents
+    xmin, xmax = 0, nx
+    ymin, ymax = 0, ny
     nx = int(round(xmax - xmin))
     ny = int(round(ymax - ymin))
-
     dx = (xmax - xmin) / nx
     dy = (ymax - ymin) / ny
 
-
-    # Create subcell centers
     xs = xmin + (np.arange(nx) + 0.5) * dx
     ys = ymin + (np.arange(ny) + 0.5) * dy
     X, Y = np.meshgrid(xs, ys)
 
-    # Integer grid: start all zeros
+    # Start with matrix
     mask = M * np.ones((ny, nx), dtype=int)
 
-    # Fill fibers
-    inside = (X - center[0])**2 + (Y - center[1])**2 <= R**2
-    mask[inside] = F
+    # --- Fiber ---
+    r2 = (X - center[0])**2 + (Y - center[1])**2
+    mask[r2 <= R**2] = F
 
-    # Calculate actual values
+    # --- Interface ---
+    if VI is not None or RI is not None:
+        mask[(r2 > R**2) & (r2 <= R_outer**2)] = I
+
+    # --- Output dictionary ---
     out = {
-            'VF':None,
-           'R':None,
-           'NB':None,
-           'NG':None,
-           'F':F,
-           'M':M
-           }
-    
-    # Calculate Volume Fraction
-    out['VF'] = np.sum(mask == F) / (nx * ny)
-
-    # Calculate Radius
-    out['R'] = np.sum(mask[:,int(nx/2)] == F)/2
-
-    # Calculate subcell dimensions
-    out['NB'] = nx
-    out['NG'] = ny
+        'VF': np.sum(mask == F) / (nx * ny),
+        'R': np.sum(mask[:, int(nx/2)] == F) / 2,
+        'NB': nx,
+        'NG': ny,
+        'F': F,
+        'M': M,
+        'VI': np.sum(mask == I) / (nx * ny) if (VI is not None or RI is not None) else 0,
+        'RI': np.sum(mask[:, int(nx/2)] == I) / 2 if (VI is not None or RI is not None) else 0,
+        'I': I
+    }
 
     return mask, out

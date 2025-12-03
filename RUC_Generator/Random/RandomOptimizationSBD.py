@@ -37,6 +37,7 @@ def RandomOptimizationSBD(mask, rve_data, input_space, opt_settings, callback = 
 
     # Characterize the true microstructure
     VF = np.sum(mask == 1) / (len(mask) * len(mask[0]))
+    VI = np.sum(mask == 3) / (len(mask) * len(mask[0]))
     _, _, _, pdf, _, _, _ = RandomCharacterization(mask, opt_settings['nbins'])
 
     # Define the input space
@@ -102,22 +103,41 @@ def RandomOptimizationSBD(mask, rve_data, input_space, opt_settings, callback = 
                     input_array[key] = eval(key)
             
             # Generate the mask
-            data = RandomSBD(
-                            W=int(rve_data['W']), 
-                            H=int(rve_data['H']), 
-                            N_fibers=int(rve_data['Nfibers']), 
-                            VF=float(VF), 
-                            damping = float(input_array['damping']), 
-                            k = float(input_array['k']), 
-                            mass = mass,
-                            gamma = float(input_array['gamma']),
-                            dt = float(input_array['dt']), 
-                            steps = max_steps, 
-                            min_gap = int(rve_data['min_gap']), 
-                            n_gen = 1, 
-                            periodic = True, 
-                            seed = float(input_array['seed'])
-                            )
+            if VI == 0:
+                data = RandomSBD(
+                                W=int(rve_data['W']), 
+                                H=int(rve_data['H']), 
+                                N_fibers=int(rve_data['Nfibers']), 
+                                VF=float(VF), 
+                                damping = float(input_array['damping']), 
+                                k = float(input_array['k']), 
+                                mass = mass,
+                                gamma = float(input_array['gamma']),
+                                dt = float(input_array['dt']), 
+                                steps = max_steps, 
+                                min_gap = int(rve_data['min_gap']), 
+                                n_gen = 1, 
+                                periodic = True, 
+                                seed = float(input_array['seed'])
+                                )
+            else:
+                data =  RandomSBD(
+                                W=int(rve_data['W']), 
+                                H=int(rve_data['H']), 
+                                N_fibers=int(rve_data['Nfibers']), 
+                                VF=float(VF), 
+                                damping = float(input_array['damping']), 
+                                k = float(input_array['k']), 
+                                mass = mass,
+                                gamma = float(input_array['gamma']),
+                                dt = float(input_array['dt']), 
+                                steps = max_steps, 
+                                min_gap = int(rve_data['min_gap']), 
+                                n_gen = 1, 
+                                periodic = True, 
+                                seed = float(input_array['seed']),
+                                VI = VI
+                                )
             mask_i = data[0][1]
             out_i = data[0][2]
 
@@ -173,22 +193,42 @@ def RandomOptimizationSBD(mask, rve_data, input_space, opt_settings, callback = 
                         input_array[key] = eval(key)
                 
                 # Generate the mask
-                data = RandomSBD(
-                            W=int(rve_data['W']), 
-                            H=int(rve_data['H']), 
-                            N_fibers=int(rve_data['Nfibers']), 
-                            VF=float(VF), 
-                            damping = float(input_array['damping']), 
-                            k = float(input_array['k']), 
-                            mass = mass,
-                            gamma = float(input_array['gamma']),
-                            dt = float(input_array['dt']), 
-                            steps = max_steps, 
-                            min_gap = int(rve_data['min_gap']), 
-                            n_gen = 1, 
-                            periodic = True, 
-                            seed = float(input_array['seed'])
-                            )
+                if VI == 0:
+                    data = RandomSBD(
+                                W=int(rve_data['W']), 
+                                H=int(rve_data['H']), 
+                                N_fibers=int(rve_data['Nfibers']), 
+                                VF=float(VF), 
+                                damping = float(input_array['damping']), 
+                                k = float(input_array['k']), 
+                                mass = mass,
+                                gamma = float(input_array['gamma']),
+                                dt = float(input_array['dt']), 
+                                steps = max_steps, 
+                                min_gap = int(rve_data['min_gap']), 
+                                n_gen = 1, 
+                                periodic = True, 
+                                seed = float(input_array['seed'])
+                                )
+                else:
+                    data = RandomSBD(
+                                W=int(rve_data['W']), 
+                                H=int(rve_data['H']), 
+                                N_fibers=int(rve_data['Nfibers']), 
+                                VF=float(VF), 
+                                damping = float(input_array['damping']), 
+                                k = float(input_array['k']), 
+                                mass = mass,
+                                gamma = float(input_array['gamma']),
+                                dt = float(input_array['dt']), 
+                                steps = max_steps, 
+                                min_gap = int(rve_data['min_gap']), 
+                                n_gen = 1, 
+                                periodic = True, 
+                                seed = float(input_array['seed']),
+                                VI = VI
+                                )
+                    
                 mask_j = data[0][1]
                 out_j = data[0][2]
 
@@ -238,22 +278,41 @@ def RandomOptimizationSBD(mask, rve_data, input_space, opt_settings, callback = 
             input_array[key] = eval(key)
     
     # Generate the mask
-    data = RandomSBD(
-                W=int(rve_data['W']), 
-                H=int(rve_data['H']), 
-                N_fibers=int(rve_data['Nfibers']), 
-                VF=float(VF), 
-                damping = float(input_array['damping']), 
-                k = float(input_array['k']), 
-                mass = mass,
-                gamma = float(input_array['gamma']),
-                dt = float(input_array['dt']), 
-                steps = max_steps, 
-                min_gap = int(rve_data['min_gap']), 
-                n_gen = 1, 
-                periodic = True, 
-                seed = float(input_array['seed'])
-                )
+    if VI == 0:
+        data = RandomSBD(
+                    W=int(rve_data['W']), 
+                    H=int(rve_data['H']), 
+                    N_fibers=int(rve_data['Nfibers']), 
+                    VF=float(VF), 
+                    damping = float(input_array['damping']), 
+                    k = float(input_array['k']), 
+                    mass = mass,
+                    gamma = float(input_array['gamma']),
+                    dt = float(input_array['dt']), 
+                    steps = max_steps, 
+                    min_gap = int(rve_data['min_gap']), 
+                    n_gen = 1, 
+                    periodic = True, 
+                    seed = float(input_array['seed'])
+                    )
+    else:
+        data = RandomSBD(
+                    W=int(rve_data['W']), 
+                    H=int(rve_data['H']), 
+                    N_fibers=int(rve_data['Nfibers']), 
+                    VF=float(VF), 
+                    damping = float(input_array['damping']), 
+                    k = float(input_array['k']), 
+                    mass = mass,
+                    gamma = float(input_array['gamma']),
+                    dt = float(input_array['dt']), 
+                    steps = max_steps, 
+                    min_gap = int(rve_data['min_gap']), 
+                    n_gen = 1, 
+                    periodic = True, 
+                    seed = float(input_array['seed']),
+                    VI=VI
+                    )
     best_mask = data[0][1]
     best_out = data[0][2]
     _, _, _, pdf_best, _, _, _ = RandomCharacterization(best_mask, nbins=opt_settings['nbins'])

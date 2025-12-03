@@ -1,4 +1,4 @@
-def Plot(mask, fib_color, mat_color, show_grid):
+def Plot(mask, fib_color, mat_color, show_grid, interface_color = None):
     """
     Generate the microstructure images for the streamlit UI
 
@@ -23,14 +23,25 @@ def Plot(mask, fib_color, mat_color, show_grid):
         ygap = None
 
     # Create Plotly figure
-    fig = go.Figure(data=go.Heatmap(
-            z=mask,
-            colorscale=[[0, fib_color], 
-                        [1, mat_color]],
-            showscale=False,
-            xgap=xgap,
-            ygap=ygap
-        ))
+    if interface_color == None:
+        fig = go.Figure(data=go.Heatmap(
+                z=mask,
+                colorscale=[[0, fib_color], 
+                            [1, mat_color]],
+                showscale=False,
+                xgap=xgap,
+                ygap=ygap
+            ))
+    else:
+        fig = go.Figure(data=go.Heatmap(
+                z=mask,
+                colorscale=[[0, fib_color], 
+                            [0.5, mat_color],
+                            [1, interface_color]],
+                showscale=False,
+                xgap=xgap,
+                ygap=ygap
+            ))
 
     # Layout tweaks 
     fig.update_layout(

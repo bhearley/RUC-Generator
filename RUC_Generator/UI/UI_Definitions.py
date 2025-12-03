@@ -25,12 +25,14 @@ def UI_Definitions(key, vars = None, tag = None):
     from RUC_Generator.Random.RandomOptimizationSBD import RandomOptimizationSBD
 
     # Color Options
-    if key == 'Fiber' or key == 'Matrix':
+    if key == 'Fiber' or key == 'Matrix' or key == 'Interface':
         color_list = ["white", "black", "red", "green", "blue", "yellow", "purple"]
         if key == 'Fiber':
             def_color = 'blue'
-        else:
+        if key == 'Matrix':
             def_color = 'red'
+        if key == 'Interface':
+            def_color = 'yellow'
 
         return color_list, def_color
 
@@ -47,12 +49,12 @@ def UI_Definitions(key, vars = None, tag = None):
         # Create default values
         def_vals_ord = {
                     # Col   Type        Step    Min     Max                         Default Display Name    
-                'VF':[1,    'float',    0.001,  0.,     math.pi / (2*math.sqrt(3)), 0.6,    'VF'    ],
-                'R' :[2,    'float',    0.001,  0.,     None,                       10.,    'R'     ],
-                'NB':[1,    'int',      1,      1,      None,                       10,     'NB'    ],
-                'NG':[2,    'int',      1,      1,      None,                       10,     'NG'    ],
-                'F' :[1,    'int',      1,      1,      None,                       1,      'F'     ],
-                'M' :[2,    'int',      1,      1,      None,                       2,      'M'     ],
+                'VF':[1,    'float',    0.001,  0.,     math.pi / (2*math.sqrt(3)), 0.6,    'Fiber Volume Fraction'     ],
+                'R' :[2,    'float',    0.001,  0.,     None,                       10.,    'Fiber Radius'    ],
+                'NB':[1,    'int',      1,      1,      None,                       10,     'Subcells in X'   ],
+                'NG':[2,    'int',      1,      1,      None,                       10,     'Subcells in Y'  ],
+                'F' :[1,    'int',      1,      1,      None,                       1,      'Fiber ID'     ],
+                'M' :[2,    'int',      1,      1,      None,                       2,      'Matrix ID'    ],
                 }
 
         # Create defintion list
@@ -78,12 +80,12 @@ def UI_Definitions(key, vars = None, tag = None):
         # Create default values
         def_vals_ord = {
                     # Col   Type        Step    Min     Max             Default Display Name   
-                'VF':[1,    'float',    0.001,  0.,     math.pi / 4,    0.6,    'VF'    ],
-                'R' :[2,    'float',    0.001,  0.,     None,           10.,    'R'     ],
-                'NB':[1,    'int',      1,      1,      None,           10,     'NB'    ],
-                'NG':[2,    'int',      1,      1,      None,           10,     'NG'    ],
-                'F' :[1,    'int',      1,      1,      None,           1,      'F'     ],
-                'M' :[2,    'int',      1,      1,      None,           2,      'M'     ],
+                'VF':[1,    'float',    0.001,  0.,     math.pi / 4,    0.6,    'Fiber Volume Fraction'    ],
+                'R' :[2,    'float',    0.001,  0.,     None,           10.,    'Fiber Radius'     ],
+                'NB':[1,    'int',      1,      1,      None,           10,     'Subcells in X'    ],
+                'NG':[2,    'int',      1,      1,      None,           10,     'Subcells in Y'    ],
+                'F' :[1,    'int',      1,      1,      None,           1,      'Fiber ID'     ],
+                'M' :[2,    'int',      1,      1,      None,           2,      'Matrix ID'     ],
                 }
 
         # Create defintion list
@@ -104,12 +106,37 @@ def UI_Definitions(key, vars = None, tag = None):
         
         return def_vals_ord, def_list_ord
     
-    # Random Algorithm Functions
+    # Interface Options
+    if key == "InterfaceOptions":
+        interface_opts = [
+                        "Volume Fraction", 
+                        "Thickness",
+                        ]
+        vf_vals = {
+                    # Col   Type        Step    Min     Max             Default Display Name   
+                'VI':[1,    'float',    0.001,  0.,     math.pi / 4,    0.1,    'Interface Volume Fraction'    ],
+                'I' :[2,    'int',      1,      1,      None,           3,      'Interface ID'     ],
+                }
+        
+        rad_vals = {
+                    # Col   Type        Step    Min     Max             Default Display Name   
+                'RI':[1,    'float',    0.001,  0.,     None,           2.,     'Interface Thickness'    ],
+                'I' :[2,    'int',      1,      1,      None,           3,      'Interface ID'     ],
+                }
+        
+        int_vals_ord = {
+                        'Volume Fraction':  vf_vals,
+                        'Thickness':        rad_vals
+                        }
+        return interface_opts, int_vals_ord
+    
+    # Ordered microstructure list
     if key == "AlgorithmList":
-        algo_list = [
+        ordered_list = [
                         "Soft Body Dynamics", 
                         ]
-        return algo_list
+        return ordered_list
+    
 
     # Soft Body Dynamics Options
     if key == 'SBD':

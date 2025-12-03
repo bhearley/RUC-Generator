@@ -69,6 +69,11 @@ with tab_ord:
     # Initialize the function
     func_ord = None
 
+    # Create reset function
+    def reset_ord_plot():
+        if 'mask_ord' in st.session_state:
+            del st.session_state['mask_ord']
+
     # Create columns for microstructure and definition selection
     col_ord_def_1, col_ord_def_2 = st.columns([1, 1])
 
@@ -86,7 +91,12 @@ with tab_ord:
                                     "Select a microstructure:",
                                     ordered_list,
                                     key = 'micro_opt_ord',
+                                    on_change=reset_ord_plot
                                     )
+        
+        # Create option for interface
+        st.markdown(f'<div style="height:{26}px"></div>', unsafe_allow_html=True)
+        interface_ord = st.checkbox('Include Interface', key = 'check_interface_ord', on_change=reset_ord_plot)
 
     # Hexagonal Pack Definition
     if micro_opt_ord == "Hexagonal":
@@ -106,8 +116,23 @@ with tab_ord:
                                 "Select an input type:", 
                                 list(def_list_ord.keys()),
                                 key = 'def_opt_ord',
+                                on_change=reset_ord_plot
                                 )
+        
+        # Create inputs for interface
+        if interface_ord:
 
+            # Get definition selection
+            interface_opts, int_vals_ord_all = UI_Definitions('InterfaceOptions')
+
+            # Create the input
+            interface_opt_ord = st.selectbox(
+                                        "Interface Definition:",
+                                        interface_opts,
+                                        key = 'interface_opt_ord',
+                                        on_change=reset_ord_plot
+                                        )
+            
     # Separate user inputs
     st.markdown('''---''')
 
@@ -162,6 +187,7 @@ with tab_ord:
                                                 step=step,
                                                 min_value=min_v,
                                                 max_value=max_v,
+                                                on_change=reset_ord_plot,
                                                 )
 
                 # Inactive Input
@@ -172,21 +198,69 @@ with tab_ord:
                         del st.session_state[widget_key]
 
                     # Use a disabled text field that looks empty
-                    st.text_input(key, value="", disabled=True, key = key+"_ord")
+                    st.text_input(disp_name, value="", disabled=True, key = key+"_ord")
 
                     # Reset value to None
                     values[key] = None
-                            
 
+    # Create user inputs
+    if interface_ord:
+
+        # Get the correct inputs
+        int_vals_ord = int_vals_ord_all[st.session_state['interface_opt_ord']]
+
+        # Create numeric inputs
+        for key in int_vals_ord.keys():
+
+            # Determine column
+            colnum = col_ord_inp_1 if int_vals_ord[key][0] == 1 else col_ord_inp_2
+
+            with colnum:
+
+                # Get min, max, step, default, and display name
+                step        = int_vals_ord[key][2]
+                min_v       = int_vals_ord[key][3]
+                max_v       = int_vals_ord[key][4]
+                default     = int_vals_ord[key][5]
+                disp_name   = int_vals_ord[key][6]
+
+                # Set widget key
+                widget_key = f"num_input_{key}_ord"
+
+
+                # Restore previous or use default
+                if widget_key in st.session_state:
+                    val = st.session_state[widget_key]
+
+                    # Clamp if needed
+                    if min_v is not None and val < min_v:
+                        val = min_v
+                    if max_v is not None and val > max_v:
+                        val = max_v
+                else:
+                    val = default
+
+                # Render input 
+                values[key] = st.number_input(
+                                            disp_name,
+                                            key=widget_key,
+                                            value=val,
+                                            step=step,
+                                            min_value=min_v,
+                                            max_value=max_v,
+                                            on_change=reset_ord_plot,
+                                            )
+                
+
+            
     # Generate and display the RUC
     if func_ord is not None:
 
         # Create columns for organization
-        col_ord_out_1, col_ord_out_2, col_ord_out_3, col_ord_out_4, __ = st.columns([1, 1, 1, 1, 4])
+        col_ord_out_1, col_ord_out_2, col_ord_out_3, col_ord_out_4, col_ord_out_5, __ = st.columns([1, 1, 1, 1, 1, 3])
 
         # Create the generate RUC button
         with col_ord_out_1:
-
             st.markdown(f'<div style="height:{26}px"></div>', unsafe_allow_html=True)
             generate_clicked_ord = st.button("Generate RUC", key='gen_button_ord')
             st.write("")
@@ -230,6 +304,23 @@ with tab_ord:
                                     )
             st.write("")
 
+        # Create interface color selector
+        if interface_ord:
+            with col_ord_out_5:
+
+                # Get the color list and default color
+                color_list, def_color = UI_Definitions('Interface')
+
+                # Set the matrix color selector
+                if 'interface_color_ord' not in st.session_state:
+                    st.session_state['interface_color_ord'] = def_color
+                mat_color = st.selectbox(
+                                        "Interface Color",
+                                        color_list,
+                                        key = 'interface_color_ord'
+                                        )
+                st.write("")
+
         # Create microstructure
         if generate_clicked_ord:
 
@@ -238,6 +329,11 @@ with tab_ord:
             for key in values.keys():
                 if key in def_list_ord[def_opt_ord]['Inputs']:
                     func_values[key] = values[key]
+
+                if interface_ord:
+                    if key in int_vals_ord.keys():
+                        func_values[key] = values[key]
+
             st.session_state['mask_ord'] = func_ord(**func_values)
 
         # Plot
@@ -247,7 +343,10 @@ with tab_ord:
             mask, out = st.session_state['mask_ord']
 
             # Create the plot
-            fig = Plot(mask, st.session_state['fiber_color_ord'], st.session_state['matrix_color_ord'], show_grid_ord)
+            if interface_ord:
+                fig = Plot(mask, st.session_state['fiber_color_ord'], st.session_state['matrix_color_ord'], show_grid_ord, st.session_state['interface_color_ord'])
+            else:
+                fig = Plot(mask, st.session_state['fiber_color_ord'], st.session_state['matrix_color_ord'], show_grid_ord)
 
             # Create columns for visualalization and data
             col_ord_plot_1, col_ord_plot_2, __ = st.columns([2, 2, 4])
@@ -258,10 +357,17 @@ with tab_ord:
 
             # Create table with actual microstructure properties
             with col_ord_plot_2:
-                data = {
-                        'Property':['VF', 'R', 'NB', 'NG'],
-                        'Value':[out['VF'], out['R'], out['NB'], out['NG']],
-                        }
+                if interface_ord:
+                    data = {
+                            'Property':['Fiber Volume Fraction', 'Fiber Radius', 'Interface Volume Fraction', 'Interface Thickness', 'Subcells in X', 'Subcells in Y'],
+                            'Value':[out['VF'], out['R'], out['VI'], out['RI'], out['NB'], out['NG']],
+                            }
+
+                else:
+                    data = {
+                            'Property':['Fiber Volume Fraction', 'Fiber Radius', 'Subcells in X', 'Subcells in Y'],
+                            'Value':[out['VF'], out['R'], out['NB'], out['NG']],
+                            }
                 df = pd.DataFrame(data)
                 df = df.reset_index(drop=True)
                 st.markdown("")
@@ -312,21 +418,44 @@ with tab_rand:
     
     # Initialize Function
     func_rand = None
-    
+
     # Create columns for microstructure and definition selection
-    col_rand_alg_1, col_alg_def_2 = st.columns([1, 1])
+    col_rand_alg_1, col_rand_alg_2 = st.columns([1, 1])
 
     # Create input for microstructure type
     with col_rand_alg_1:
         # Get the list of available algorithms
         algo_list = UI_Definitions('AlgorithmList')
 
-        # Create the input
+        # Algorithm selector
         alg_opt_rand = st.selectbox(
-                                    "Select an algorithm:",
-                                    algo_list,
-                                    key = 'alg_opt_rand',
-                                    )
+            "Select an algorithm:",
+            algo_list,
+            key='alg_opt_rand'
+        )
+
+        # Checkbox lives here
+        def reset_rand_plot():
+            if 'select_ruc_rand' in st.session_state:
+                del st.session_state['select_ruc_rand']
+                del st.session_state['masks_rand']
+                generate_random = False
+        interface_rand = st.checkbox("Include Interface", key='check_interface_rand', on_change=reset_rand_plot)
+
+    with col_rand_alg_2:
+        # Only show dropdown if checkbox is active
+        if interface_rand:
+            interface_opts, int_vals_rand_all = UI_Definitions('InterfaceOptions')
+
+            interface_rand_ord = st.selectbox(
+                "Interface Definition:",
+                interface_opts,
+                key='interface_opt_rand'
+            )
+        else:
+            # create an empty placeholder to keep row alignment clean
+            st.write("")   # this creates a blank element but does NOT shift layout
+        
 
     # Soft Body Dynamics
     if alg_opt_rand == "Soft Body Dynamics":
@@ -404,6 +533,52 @@ with tab_rand:
                                             opts,
                                             key=widget_key,
                                             )
+                    
+        # Create user inputs
+        if interface_rand:
+
+            # Get the correct inputs
+            int_vals_rand = int_vals_rand_all[st.session_state['interface_opt_rand']]
+
+            # Create numeric inputs
+            for key in int_vals_rand.keys():
+
+                # Determine column
+                colnum = col_rand_inp_1 if int_vals_rand[key][0] == 1 else col_rand_inp_2
+
+                with colnum:
+
+                    # Get min, max, step, default, and display name
+                    step        = int_vals_rand[key][2]
+                    min_v       = int_vals_rand[key][3]
+                    max_v       = int_vals_rand[key][4]
+                    default     = int_vals_rand[key][5]
+                    disp_name   = int_vals_rand[key][6]
+
+                    # Set widget key
+                    widget_key = f"num_input_{key}_rand"
+
+                    # Restore previous or use default
+                    if widget_key in st.session_state:
+                        val = st.session_state[widget_key]
+
+                        # Clamp if needed
+                        if min_v is not None and val < min_v:
+                            val = min_v
+                        if max_v is not None and val > max_v:
+                            val = max_v
+                    else:
+                        val = default
+
+                    # Render input 
+                    values[key] = st.number_input(
+                                                disp_name,
+                                                key=widget_key,
+                                                value=val,
+                                                step=step,
+                                                min_value=min_v,
+                                                max_value=max_v,
+                                                )
 
     # Create columns for organization
     col_rand_gen_1, __, __ = st.columns([1, 1, 9])
@@ -428,7 +603,7 @@ with tab_rand:
         masks = st.session_state['masks_rand']
 
         # Organize into columns
-        col_rand_out_1, col_rand_out_2, col_rand_out_3, col_rand_out_4, __ = st.columns([1, 1, 1, 1, 4])
+        col_rand_out_1, col_rand_out_2, col_rand_out_3, col_rand_out_4, col_rand_out_5, __ = st.columns([1, 1, 1, 1, 1, 3])
 
         with col_rand_out_1:
 
@@ -479,6 +654,23 @@ with tab_rand:
                                     key = 'matrix_color_rand'
                                     )   
             st.write("")
+
+        # Create interface color selector
+        if interface_rand:
+            with col_rand_out_5:
+
+                # Get the color list and default color
+                color_list, def_color = UI_Definitions('Interface')
+
+                # Set the matrix color selector
+                if 'interface_color_rand' not in st.session_state:
+                    st.session_state['interface_color_rand'] = def_color
+                mat_color = st.selectbox(
+                                        "Interface Color",
+                                        color_list,
+                                        key = 'interface_color_rand'
+                                        )
+                st.write("")
             
         # Only create plot of an RUC exists
         if 'select_ruc_rand' in st.session_state:
@@ -491,7 +683,10 @@ with tab_rand:
                     break
             
             # Create the plot
-            fig = Plot(selected_mask, st.session_state['fiber_color_rand'], st.session_state['matrix_color_rand'], show_grid_rand)
+            if interface_rand:
+                fig = Plot(selected_mask, st.session_state['fiber_color_rand'], st.session_state['matrix_color_rand'], show_grid_rand, st.session_state['interface_color_rand'])
+            else:
+                fig = Plot(selected_mask, st.session_state['fiber_color_rand'], st.session_state['matrix_color_rand'], show_grid_rand)
 
             # Create columns for visualalization and data
             col_rand_plot_1, col_rand_plot_2, __ = st.columns([2, 2, 4])
@@ -502,10 +697,17 @@ with tab_rand:
 
             # Create table with actual microstructure properties
             with col_rand_plot_2:
-                data = {
-                        'Property':['VF', 'R', 'NB', 'NG'],
-                        'Value':[selected_out['VF'], selected_out['R'], selected_out['NB'], selected_out['NG']],
-                        }
+                if interface_rand:
+                    data = {
+                            'Property':['Fiber Volume Fraction', 'Fiber Radius', 'Interface Volume Fraction', 'Interface Thickness', 'Subcells in X', 'Subcells in Y'],
+                            'Value':[out['VF'], out['R'], out['VI'], out['RI'], out['NB'], out['NG']],
+                            }
+
+                else:
+                    data = {
+                            'Property':['Fiber Volume Fraction', 'Fiber Radius', 'Subcells in X', 'Subcells in Y'],
+                            'Value':[out['VF'], out['R'], out['NB'], out['NG']],
+                            }
                 df = pd.DataFrame(data)
                 df = df.reset_index(drop=True)
                 st.markdown("")
@@ -516,16 +718,29 @@ with tab_rand:
             st.write("Summary:")
 
             # Calculate averages and standard deviations
-            out_sum = {
-                    'VF':[],
-                    'R':[],
-                    'NB':[],
-                    'NG':[],
-                    }
+            if interface_rand:
+                out_sum = {
+                        'Fiber Volume Fraction':[],
+                        'Fiber Radius':[],
+                        'Interface Volume Fraction':[],
+                        'Interface Thickness':[],
+                        'Subcells in X':[],
+                        'Subcells in Y':[],
+                        }
+                out_sum_keys = ['VF', 'R', 'VI', 'RI', 'NB', 'NG']
+
+            else:
+                out_sum = {
+                        'Fiber Volume Fraction':[],
+                        'Fiber Radius':[],
+                        'Subcells in X':[],
+                        'Subcells in Y':[],
+                        }
+                out_sum_keys = ['VF', 'R', 'NB', 'NG']
             
             for name, mask, out in masks:
-                for key in out_sum.keys():
-                    out_sum[key].append(out[key])
+                for i, key in enumerate(out_sum.keys()):
+                    out_sum[key].append(out[out_sum_keys[i]])
 
             for key in out_sum.keys():
                 out_sum[key] = [np.average(out_sum[key]), np.std(out_sum[key])]
@@ -1322,18 +1537,18 @@ with tab_viz:
                 st.error("Error reading CSV file. Please ensure it is formatted correctly.")
 
         else:
-                mask, out, msg = ReadRUC(content)
-                if msg != "":
-                    st.error(msg)
-                else:
-                    st.session_state['mask_viz'] = mask
-                    flag = 1
+            mask, out, msg = ReadRUC(content)
+            if msg != "":
+                st.error(msg)
+            else:
+                st.session_state['mask_viz'] = mask
+                flag = 1
 
         # Display RUC
         if flag == 1:
 
             # Create columns for organization
-            col_viz_disp_1, col_viz_disp_2, col_viz_disp_3, __ = st.columns([1, 1, 1, 3])
+            col_viz_disp_1, col_viz_disp_2, col_viz_disp_3, col_viz_disp_4, __ = st.columns([1, 1, 1, 1, 2])
 
             # Create the gridline checkbox
             with col_viz_disp_1:
@@ -1357,7 +1572,7 @@ with tab_viz:
                                         )
                 st.write("")
                 
-            # Create =matrix color selector
+            # Create matrix color selector
             with col_viz_disp_3:
 
                 # Get the color list and default color
@@ -1373,6 +1588,25 @@ with tab_viz:
                                         )
                 st.write("")
 
+            interface_viz = False
+            if 'VI' in out.keys():
+                interface_viz = True
+                with col_viz_disp_4:
+
+                    # Get the color list and default color
+                    color_list, def_color = UI_Definitions('Interface')
+
+                    # Set the matrix color selector
+                    if 'interface_color_viz' not in st.session_state:
+                        st.session_state['interface_color_viz'] = def_color
+                    int_color = st.selectbox(
+                                            "Interface Color",
+                                            color_list,
+                                            key = 'interface_color_viz'
+                                            )
+                    st.write("")
+
+
             # Only plot if we have a mask
             if 'mask_viz' in st.session_state:
 
@@ -1380,7 +1614,10 @@ with tab_viz:
                 mask = st.session_state['mask_viz']
 
                 # Create the plot
-                fig = Plot(mask, st.session_state['fiber_color_viz'], st.session_state['matrix_color_viz'], show_grid_viz)
+                if interface_viz:
+                    fig = Plot(mask, st.session_state['fiber_color_viz'], st.session_state['matrix_color_viz'], show_grid_viz, st.session_state['interface_color_viz'])
+                else:
+                    fig = Plot(mask, st.session_state['fiber_color_viz'], st.session_state['matrix_color_viz'], show_grid_viz)
 
                 # Create columns for visualalization and data
                 col_viz_plot_1, col_viz_plot_2, __ = st.columns([1, 1, 2])
@@ -1391,10 +1628,17 @@ with tab_viz:
 
                 # Create table with actual microstructure properties
                 with col_viz_plot_2:
-                    data = {
-                            'Property':['VF', 'NB', 'NG'],
-                            'Value':[out['VF'], out['NB'], out['NG']],
-                            }
+                    if interface_rand:
+                        data = {
+                                'Property':['Fiber Volume Fraction', 'Interface Volume Fraction', 'Subcells in X', 'Subcells in Y'],
+                                'Value':[out['VF'],  out['VI'],  out['NB'], out['NG']],
+                                }
+
+                    else:
+                        data = {
+                                'Property':['Fiber Volume Fraction',  'Subcells in X', 'Subcells in Y'],
+                                'Value':[out['VF'], out['NB'], out['NG']],
+                                }
                     df = pd.DataFrame(data)
                     df = df.reset_index(drop=True)
                     st.markdown("")
@@ -1435,6 +1679,9 @@ with tab_viz:
     # Only create optimization inputs if a mask exists
     try:
         if 'mask_viz' in st.session_state:
+
+            # Get the mask
+            mask = st.session_state['mask_viz']
 
             # Determine if characterization is possible
             try:
@@ -1652,14 +1899,11 @@ with tab_viz:
                 opt_rve_viz = st.button('Optimize RVE', key = 'opt_rve_viz')
 
                 if opt_rve_viz:
-                    print('test 1')
                     # Gather inputs
                     optimization_inputs = {}
 
                     if alg_opt_viz == "Soft Body Dynamics":
-                        print('test_inp_1')
                         func_opt_viz, func_inp_viz = UI_Definitions("SBD_Opt_Run", st.session_state, 'viz')
-                        print('test_inp')
                         
                     # Call the function
                     with st.spinner('Running Optimization...'):
@@ -1711,7 +1955,7 @@ with tab_viz:
                 if st.session_state.show_opt_viz:
 
                     # Create columns for organization
-                    col_opt_viz_out_1, col_opt_viz_out_2, col_opt_viz_out_3, __ = st.columns([1, 1, 1, 3])
+                    col_opt_viz_out_1, col_opt_viz_out_2, col_opt_viz_out_3, col_opt_viz_out_4, __ = st.columns([1, 1, 1, 1, 2])
 
                     # Create the gridline checkbox
                     with col_opt_viz_out_1:
@@ -1751,14 +1995,36 @@ with tab_viz:
                                                 )
                         st.write("")
 
+                    
+
                     # Plot
                     if 'mask_opt_viz' in st.session_state:
 
                         # Get the mask
                         mask, out = st.session_state['mask_opt_viz']
 
+                        if np.max(mask) == 3:
+                            # Create interface color selector
+                            with col_opt_viz_out_4:
+
+                                # Get the color list and default color
+                                color_list, def_color = UI_Definitions('Interface')
+
+                                # Set the matrix color selector
+                                if 'interface_color_opt_viz' not in st.session_state:
+                                    st.session_state['interface_color_opt_viz'] = def_color
+                                mat_color = st.selectbox(
+                                                        "Matrix Color",
+                                                        color_list,
+                                                        key = 'interface_color_opt_viz'
+                                                        )
+                                st.write("")
+
                         # Create the plot
-                        fig = Plot(mask, st.session_state['fiber_color_opt_viz'], st.session_state['matrix_color_opt_viz'], show_grid_opt_viz)
+                        if np.max(mask) == 2:
+                            fig = Plot(mask, st.session_state['fiber_color_opt_viz'], st.session_state['matrix_color_opt_viz'], show_grid_opt_viz)
+                        elif np.max(mask) == 3:
+                            fig = Plot(mask, st.session_state['fiber_color_opt_viz'], st.session_state['matrix_color_opt_viz'], show_grid_opt_viz, st.session_state['interface_color_opt_viz'])
 
                         # Create columns for visualalization and data
                         col_opt_plot_1, col_opt_plot_2, __ = st.columns([2, 2, 4])
@@ -1769,10 +2035,16 @@ with tab_viz:
 
                         # Create table with actual microstructure properties
                         with col_opt_plot_2:
-                            data = {
-                                    'Property':['VF', 'R', 'NB', 'NG', 'Error'],
-                                    'Value':[out['VF'], out['R'], out['NB'], out['NG'], out['Error']]
-                                    }
+                            if np.max(mask) == 2:
+                                data = {
+                                        'Property':['Fiber Volume Fraction', 'Fiber Radius', 'Subcells in X', 'Subcells in Y', 'Error'],
+                                        'Value':[out['VF'], out['R'], out['NB'], out['NG'], out['Error']]
+                                        }
+                            elif np.max(mask) == 3:
+                                data = {
+                                        'Property':['Fiber Volume Fraction', 'Fiber Radius', 'Interface Volume Fraction', 'Interface Thickness', 'Subcells in X', 'Subcells in Y', 'Error'],
+                                        'Value':[out['VF'], out['R'], out['VI'], out['I'], out['NB'], out['NG'], out['Error']]
+                                        }
                             df = pd.DataFrame(data)
                             df = df.reset_index(drop=True)
                             st.markdown("")

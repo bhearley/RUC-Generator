@@ -125,13 +125,24 @@ def ReadRUC(content):
     mask = mask.astype(int)
 
     # Calculate actual values
-    out = {
-            'VF':None,
-           'NB':None,
-           'NG':None,
-           'F':1,
-           'M':2
-           }
+    if np.max(mask) == 2:
+        out = {
+                'VF':None,
+                'NB':None,
+                'NG':None,
+                'F':1,
+                'M':2
+                }
+    else:
+        out = {
+                'VF':None,
+                'VI':None,
+                'NB':None,
+                'NG':None,
+                'F':1,
+                'M':2,
+                'I':3
+                }
     
     # Set Dimensions
     nx = len(mask[0,:])
@@ -139,6 +150,8 @@ def ReadRUC(content):
 
     # Calculate Volume Fraction
     out['VF'] = np.sum(mask == 1) / (nx * ny)
+    if 'VI' in out.keys():
+        out['VI'] = np.sum(mask == 3) / (nx * ny)
 
     # Calculate subcell dimensions
     out['NB'] = nx
