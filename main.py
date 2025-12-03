@@ -5,6 +5,8 @@
 #   The 2D NASMAT RUC Generator is used to generate and visualize microstructres and corresponding *RUC files compatible with the NASA 
 #   Mulitscale Analysis Tool (NASMAT). It allows users to generate ordered RUCs (square or hexagonal pack), random RUCs (with and 
 #   without periodicity), RUCs from a segmented microscopy image (assuming circular fibers), or visualize an RUC from a *.mac input file.
+#   Additionally, from either a segmented or visualized micorstructure, a statistically equivlaent, periodic RUC can be generated using
+#   soft body dynamics to minimize the error in local fiber volume fraction using Bayesian optimization.
 #
 #   Brandon L. Hearley (LMS)
 #   brandon.l.hearley@nasa.gov 
@@ -15,27 +17,21 @@
 # Import Libraries
 import cv2
 import io
-import math
 import numpy as np
 import pandas as pd
 from PIL import Image, ImageColor
-import plotly.graph_objects as go
 import streamlit as st
 import zipfile
 
 # Import Functions
-from RUC_Generator.Hexagonal.Hex1 import Hex1
-from RUC_Generator.Hexagonal.Hex2 import Hex2
-from RUC_Generator.Hexagonal.Hex3 import Hex3
-from RUC_Generator.Square.Square1 import Square1
-from RUC_Generator.Square.Square2 import Square2
-from RUC_Generator.Square.Square3 import Square3
-from RUC_Generator.Write.WriteCSV import WriteCSV
-from RUC_Generator.Write.WriteRUC import WriteRUC
+from RUC_Generator.Random.RandomCharacterization import RandomCharacterization
 from RUC_Generator.Read.ReadCSV import ReadCSV
 from RUC_Generator.Read.ReadRUC import ReadRUC
-from RUC_Generator.Random.RandomSBD import RandomSBD
 from RUC_Generator.Segmented.Segmented import Segmented
+from RUC_Generator.Write.WriteCSV import WriteCSV
+from RUC_Generator.Write.WriteRUC import WriteRUC
+from RUC_Generator.UI.Plot import Plot
+from RUC_Generator.UI.UI_Definitions import UI_Definitions
 
 #------------------------------------------------------------------------------------------------------------------------------------------
 #   GENERAL SETUP
@@ -62,6 +58,7 @@ tab_ord, tab_rand, tab_img, tab_viz = st.tabs(["Ordered", "Random", "From Image"
 
 # Ordered Microstructure Generation
 with tab_ord:
+
     # Create Header
     st.markdown("## Ordered RUC Generator")
 
@@ -75,76 +72,29 @@ with tab_ord:
     # Create columns for microstructure and definition selection
     col_ord_def_1, col_ord_def_2 = st.columns([1, 1])
 
+    # Get list of available ordered microstructures
+    ordered_list = UI_Definitions('OrderedList')
+
     # Create input for microstructure type
     with col_ord_def_1:
+
+        # Get the ordered list
+        ordered_list = UI_Definitions("OrderedList")
+
+        # Create the input
         micro_opt_ord = st.selectbox(
-                            "Select a microstructure:",
-                                [
-                                    "Hexagonal", 
-                                    "Square",
-                                ],
-                            key = 'micro_opt_ord',
-                        )
+                                    "Select a microstructure:",
+                                    ordered_list,
+                                    key = 'micro_opt_ord',
+                                    )
 
     # Hexagonal Pack Definition
     if micro_opt_ord == "Hexagonal":
-
-        # -- Create default values
-        def_vals_ord = {
-                    # Col   Type        Step    Min     Max                         Default Display Name    
-                'VF':[1,    'float',    0.001,  0.,     math.pi / (2*math.sqrt(3)), 0.6,    'VF'    ],
-                'R' :[2,    'float',    0.001,  0.,     None,                       10.,    'R'     ],
-                'NB':[1,    'int',      1,      1,      None,                       10,     'NB'    ],
-                'NG':[2,    'int',      1,      1,      None,                       10,     'NG'    ],
-                'F' :[1,    'int',      1,      1,      None,                       1,      'F'     ],
-                'M' :[2,    'int',      1,      1,      None,                       2,      'M'     ],
-                }
-
-        # -- Create defintion list
-        def_list_ord = {
-                    "Volume Fraction & Subcell Dimensions":{
-                                                            'Inputs':['VF','NB','F','M'],
-                                                            'Function':Hex1
-                                                            }, 
-                    "Volume Fraction & Radius":{
-                                                'Inputs':['VF','R','F','M'],
-                                                'Function':Hex2
-                                                }, 
-                    "Radius & Subcell Dimensions":{
-                                                    'Inputs':['R','NB','F','M'],
-                                                    'Function':Hex3
-                                                    }, 
-                    }
+        def_vals_ord, def_list_ord = UI_Definitions('Hexagonal')
         
     # Square Pack Definition
     elif micro_opt_ord == "Square":
-        
-        # -- Create default values
-        def_vals_ord = {
-                    # Col   Type        Step    Min     Max             Default Display Name   
-                'VF':[1,    'float',    0.001,  0.,     math.pi / 4,    0.6,    'VF'    ],
-                'R' :[2,    'float',    0.001,  0.,     None,           10.,    'R'     ],
-                'NB':[1,    'int',      1,      1,      None,           10,     'NB'    ],
-                'NG':[2,    'int',      1,      1,      None,           10,     'NG'    ],
-                'F' :[1,    'int',      1,      1,      None,           1,      'F'     ],
-                'M' :[2,    'int',      1,      1,      None,           2,      'M'     ],
-                }
-
-        # -- Create defintion list
-        def_list_ord = {
-                    "Volume Fraction & Subcell Dimensions":{
-                                                            'Inputs':['VF','NB','F','M'],
-                                                            'Function':Square1
-                                                            }, 
-                    "Volume Fraction & Radius":{
-                                                'Inputs':['VF','R','F','M'],
-                                                'Function':Square2
-                                                }, 
-                    "Radius & Subcell Dimensions":{
-                                                    'Inputs':['R','NB','F','M'],
-                                                    'Function':Square3
-                                                    }, 
-                    }
+        def_vals_ord, def_list_ord = UI_Definitions('Square')
         
     # Empty dictionary for option not selected    
     else:
@@ -153,10 +103,10 @@ with tab_ord:
     # Create definition selection
     with col_ord_def_2:
         def_opt_ord = st.selectbox(
-                        "Select an input type:", 
-                        list(def_list_ord.keys()),
-                        key = 'def_opt_ord',
-                        )
+                                "Select an input type:", 
+                                list(def_list_ord.keys()),
+                                key = 'def_opt_ord',
+                                )
 
     # Separate user inputs
     st.markdown('''---''')
@@ -180,11 +130,11 @@ with tab_ord:
             with colnum:
 
                 # Get min, max, step, default, and display name
-                step = def_vals_ord[key][2]
-                min_v = def_vals_ord[key][3]
-                max_v = def_vals_ord[key][4]
-                default = def_vals_ord[key][5]
-                disp_name = def_vals_ord[key][6]
+                step        = def_vals_ord[key][2]
+                min_v       = def_vals_ord[key][3]
+                max_v       = def_vals_ord[key][4]
+                default     = def_vals_ord[key][5]
+                disp_name   = def_vals_ord[key][6]
 
                 # Set widget key
                 widget_key = f"num_input_{key}_ord"
@@ -206,15 +156,15 @@ with tab_ord:
 
                     # Render input 
                     values[key] = st.number_input(
-                        disp_name,
-                        key=widget_key,
-                        value=val,
-                        step=step,
-                        min_value=min_v,
-                        max_value=max_v,
-                    )
+                                                disp_name,
+                                                key=widget_key,
+                                                value=val,
+                                                step=step,
+                                                min_value=min_v,
+                                                max_value=max_v,
+                                                )
 
-                #   Inactive Input
+                # Inactive Input
                 else:
                 
                     # Remove its session state
@@ -231,45 +181,58 @@ with tab_ord:
     # Generate and display the RUC
     if func_ord is not None:
 
-        # -- Create columns for organization
-        col_ord_out_1, col_ord_out_2, col_ord_out_3, col_ord_out_4, __ = st.columns([1, 1, 1, 1, 7])
+        # Create columns for organization
+        col_ord_out_1, col_ord_out_2, col_ord_out_3, col_ord_out_4, __ = st.columns([1, 1, 1, 1, 4])
 
-        # -- Create the generate RUC button
+        # Create the generate RUC button
         with col_ord_out_1:
+
             st.markdown(f'<div style="height:{26}px"></div>', unsafe_allow_html=True)
             generate_clicked_ord = st.button("Generate RUC", key='gen_button_ord')
             st.write("")
 
-        # -- Create the gridline checkbox
+        # Create the gridline checkbox
         with col_ord_out_2:
+
             st.markdown(f'<div style="height:{36}px"></div>', unsafe_allow_html=True)
             show_grid_ord = st.checkbox("Show Grid Lines", value=True, key='grid_check_ord')
             st.write("")
 
-        # -- Create fiber color selector
+        # Create fiber color selector
         with col_ord_out_3:
+
+            # Get the color list and default color
+            color_list, def_color = UI_Definitions('Fiber')
+
+            # Set the fiber color selector
             if 'fiber_color_ord' not in st.session_state:
-                st.session_state['fiber_color_ord'] = 'blue'
+                st.session_state['fiber_color_ord'] = def_color
             fib_color = st.selectbox(
-                    "Fiber Color",
-                    ["white", "black", "red", "green", "blue", "yellow", "purple"],
-                    key = 'fiber_color_ord'
-                )
+                                    "Fiber Color",
+                                    color_list,
+                                    key = 'fiber_color_ord'
+                                    )
             st.write("")
             
-        # -- Create matrix color selector
+        # Create matrix color selector
         with col_ord_out_4:
+
+            # Get the color list and default color
+            color_list, def_color = UI_Definitions('Matrix')
+
+            # Set the matrix color selector
             if 'matrix_color_ord' not in st.session_state:
-                st.session_state['matrix_color_ord'] = 'red'
+                st.session_state['matrix_color_ord'] = def_color
             mat_color = st.selectbox(
-                    "Matrix Color",
-                    ["white", "black", "red", "green", "blue", "yellow", "purple"],
-                    key = 'matrix_color_ord'
-                )
+                                    "Matrix Color",
+                                    color_list,
+                                    key = 'matrix_color_ord'
+                                    )
             st.write("")
 
         # Create microstructure
         if generate_clicked_ord:
+
             func_values = {}
             flag = 0
             for key in values.keys():
@@ -279,51 +242,15 @@ with tab_ord:
 
         # Plot
         if 'mask_ord' in st.session_state:
+
+            # Get the mask
             mask, out = st.session_state['mask_ord']
 
-            # Decide on grid spacing
-            if show_grid_ord:
-                xgap = 0.5
-                ygap = 0.5
-            else:
-                xgap = None
-                ygap = None
-
-            # Create Plotly figure
-            fig = go.Figure(data=go.Heatmap(
-                    z=mask,
-                    colorscale=[[0, st.session_state['fiber_color_ord']], 
-                                [1, st.session_state['matrix_color_ord']]],
-                    showscale=False,
-                    xgap=xgap,
-                    ygap=ygap
-                ))
-
-            # Layout tweaks 
-            fig.update_layout(
-                margin=dict(l=0, r=0, t=0, b=0),
-                autosize=False,
-                height=350  
-            )
-
-            fig.update_xaxes(
-                showticklabels=False,
-                showgrid=False,
-                zeroline=False,
-                constrain="domain"
-            )
-
-            fig.update_yaxes(
-                showticklabels=False,
-                showgrid=False,
-                zeroline=False,
-                autorange='reversed',
-                scaleanchor="x",
-                constrain="domain"
-            )
+            # Create the plot
+            fig = Plot(mask, st.session_state['fiber_color_ord'], st.session_state['matrix_color_ord'], show_grid_ord)
 
             # Create columns for visualalization and data
-            col_ord_plot_1, col_ord_plot_2, __ = st.columns([1.1, 1.15, 3.85])
+            col_ord_plot_1, col_ord_plot_2, __ = st.columns([2, 2, 4])
 
             # Display the microstruture
             with col_ord_plot_1:
@@ -331,8 +258,10 @@ with tab_ord:
 
             # Create table with actual microstructure properties
             with col_ord_plot_2:
-                data = {'Property':['VF', 'R', 'NB', 'NG'],
-                        'Value':[out['VF'], out['R'], out['NB'], out['NG']]}
+                data = {
+                        'Property':['VF', 'R', 'NB', 'NG'],
+                        'Value':[out['VF'], out['R'], out['NB'], out['NG']],
+                        }
                 df = pd.DataFrame(data)
                 df = df.reset_index(drop=True)
                 st.markdown("")
@@ -343,27 +272,28 @@ with tab_ord:
             ruc_data = WriteRUC(mask)
 
             # Create columns for downloading data
-            col_ord_dwnld_1, col_ord_dwnld_2, __ = st.columns([1, 1, 9])
+            st.write('Download the RUC:')
+            __, col_ord_dwnld_1, __ = st.columns([0.05, 2, 5.95])
 
-            # Download to CSV
+            # Create download buttons
             with col_ord_dwnld_1:
+                # Download to CSV
                 st.download_button(
-                    label="Download  CSV",
-                    data=csv_data,
-                    file_name="ruc.csv",
-                    mime="text/csv",
-                    key="download_csv_ord"
-                )
+                                label="Download  CSV",
+                                data=csv_data,
+                                file_name="ruc.csv",
+                                mime="text/csv",
+                                key="download_csv_ord"
+                                )
 
-            # Download for *RUC
-            with col_ord_dwnld_2:
+                # Download for *RUC
                 st.download_button(
-                label="Download *RUC File",
-                data=ruc_data,
-                file_name="ruc_data.txt",
-                mime="text/plain",
-                key="download_ruc_ord"
-            )
+                                label="Download *RUC File",
+                                data=ruc_data,
+                                file_name="ruc_data.txt",
+                                mime="text/plain",
+                                key="download_ruc_ord"
+                                )
 
 #------------------------------------------------------------------------------------------------------------------------------------------
 #   RANDOM MICROSTRUCTURE
@@ -372,6 +302,7 @@ with tab_ord:
 
 # Random Microstructure Generation   
 with tab_rand:
+
     # Create header
     st.markdown("## Random RVE Generator")
 
@@ -387,37 +318,20 @@ with tab_rand:
 
     # Create input for microstructure type
     with col_rand_alg_1:
+        # Get the list of available algorithms
+        algo_list = UI_Definitions('AlgorithmList')
+
+        # Create the input
         alg_opt_rand = st.selectbox(
-                            "Select an algorithm:",
-                                [
-                                    "Soft Body Dynamics", 
-                                ],
-                            key = 'alg_opt_rand',
-                        )
+                                    "Select an algorithm:",
+                                    algo_list,
+                                    key = 'alg_opt_rand',
+                                    )
 
-    # Hexagonal Pack Definition
+    # Soft Body Dynamics
     if alg_opt_rand == "Soft Body Dynamics":
-
-        # -- Create default values
-        def_vals_rand = {
-                            # Col   Type        Step    Min     Max     Default Display Name                Format
-                'VF'        :[1,    'float',    0.001,  0.,     0.99,   0.6,    'VF',                       "%.3f"  ],
-                'N_fibers'  :[2,    'int',      1,      1,      None,   16,     'Number of Fibers',         "%d"    ],
-                'W'         :[1,    'int',      1,      1,      None,   100,    'NB',                       "%d"    ],
-                'H'         :[2,    'int',      1,      1,      None,   100,    'NG',                       "%d"    ],
-                'k'         :[1,    'float',    0.1,    0.0,    None,   5000.,  'Stiffness (k)',            "%.3f"  ],
-                'dt'        :[2,    'float',    1.0e-6, 1.0e-6, None,   0.01,   '\u0394t',                  "%.6f"  ],
-                'damping'   :[1,    'float',    1.0e-3, 0.,     0.999,  0.5,    'Damping (c)',              "%.3f"  ],
-                'gamma'     :[2,    'float',    1.0e-3, 0.,     None,   1.0,    'Friction Coefficient',     "%.3f"  ],
-                'steps'     :[1,    'int',      1,      1,      None,   10000,  'Maxmimum Iteratiaons',     "%d"    ],
-                'min_gap'   :[2,    'int',      1,      0,      None,   1,      'Minimum Gap Between Fiber',"%d"    ],
-                'n_gen'     :[1,    'int',      1,      1,      None,   1,      'Number of microstructures',"%d"    ],
-                            # Col   Type    List            Display Name 
-                'periodic'  :[2,    'disc', [True, False], 'Periodic'],
-                }
+        def_vals_rand, func_rand = UI_Definitions("SBD")
         
-        func_rand = RandomSBD
-
     # Separate user inputs
     st.markdown('''---''')
 
@@ -438,15 +352,16 @@ with tab_rand:
 
             with colnum:
 
+                # Float and Integer Inputs
                 if def_vals_rand[key][1] in ['float', 'int']:
 
                     # Get min, max, step, default, and display name
-                    step = def_vals_rand[key][2]
-                    min_v = def_vals_rand[key][3]
-                    max_v = def_vals_rand[key][4]
-                    default = def_vals_rand[key][5]
-                    disp_name = def_vals_rand[key][6]
-                    frmt = def_vals_rand[key][7]
+                    step        = def_vals_rand[key][2]
+                    min_v       = def_vals_rand[key][3]
+                    max_v       = def_vals_rand[key][4]
+                    default     = def_vals_rand[key][5]
+                    disp_name   = def_vals_rand[key][6]
+                    frmt        = def_vals_rand[key][7]
 
                     # Set widget key
                     widget_key = f"num_input_{key}_rand"
@@ -465,73 +380,38 @@ with tab_rand:
 
                     # Render input 
                     values[key] = st.number_input(
-                        disp_name,
-                        key=widget_key,
-                        value=val,
-                        step=step,
-                        min_value=min_v,
-                        max_value=max_v,
-                        format= frmt
-                    )
+                                                disp_name,
+                                                key=widget_key,
+                                                value=val,
+                                                step=step,
+                                                min_value=min_v,
+                                                max_value=max_v,
+                                                format= frmt
+                                                )
 
+                # Discrete (Drop Down Menu) Inputs
                 elif def_vals_rand[key][1] in ['disc']:
+                    # Set widget key
                     widget_key = f"disc_input_{key}_rand"
+
+                    # Get options and name
                     opts = def_vals_rand[key][2]
                     disp_name = def_vals_rand[key][3]
 
+                    # Render input
                     values[key] = st.selectbox(
-                            disp_name,
-                            opts,
-                            key=widget_key,
-                        )
-        
-    # # Create number of generations input
-    # st.markdown("---")
-    # col_rand_inp_3, __ = st.columns([4, 6])
-    # with col_rand_inp_3:
+                                            disp_name,
+                                            opts,
+                                            key=widget_key,
+                                            )
 
-    #     # Get min, max, step, default, and display name
-    #     step = 1
-    #     min_v = 1
-    #     max_v = None
-    #     default = 1
-    #     disp_name = 'Number of Random Generations'
-    #     frmt = "%d"
-    #     key = 'n_gen'
-
-    #     # Set widget key
-    #     widget_key = f"num_input_{key}_rand"
-
-    #     # Restore previous or use default
-    #     if widget_key in st.session_state:
-    #         val = st.session_state[widget_key]
-
-    #         # Clamp if needed
-    #         if min_v is not None and val < min_v:
-    #             val = min_v
-    #         if max_v is not None and val > max_v:
-    #             val = max_v
-    #     else:
-    #         val = default
-
-    #     # Render input 
-    #     values[key] = st.number_input(
-    #         disp_name,
-    #         key=widget_key,
-    #         value=val,
-    #         step=step,
-    #         min_value=min_v,
-    #         max_value=max_v,
-    #         format= frmt
-    #     )
-
-    # -- Create columns for organization
+    # Create columns for organization
     col_rand_gen_1, __, __ = st.columns([1, 1, 9])
 
-    # -- Create the generate RUC button
+    # Create the generate RUC button
     with col_rand_gen_1:
         st.markdown(f'<div style="height:{26}px"></div>', unsafe_allow_html=True)
-        generate_random = st.button("Generate RVEs", key = 'gen_button_rand')
+        generate_random = st.button("Generate RUCs", key = 'gen_button_rand')
         st.write("")
 
     # Generate RUCs
@@ -541,104 +421,80 @@ with tab_rand:
 
         # Save generated RUCs to session state
         st.session_state['masks_rand'] = masks
-        st.session_state['select_rve_rand'] = masks[0][0]  # default selection
+        st.session_state['select_ruc_rand'] = masks[0][0]  # default selection
 
-    # Only display RVE selection if we have generated RUCs
+    # Only display RUC selection if we have generated RUCs
     if 'masks_rand' in st.session_state:
         masks = st.session_state['masks_rand']
 
         # Organize into columns
-        col_rand_out_1, col_rand_out_2, col_rand_out_3, col_rand_out_4, __ = st.columns([1, 1, 1, 1, 6])
+        col_rand_out_1, col_rand_out_2, col_rand_out_3, col_rand_out_4, __ = st.columns([1, 1, 1, 1, 4])
 
         with col_rand_out_1:
-            # Create Select Box to choose RVE
+
+            # Create Select Box to choose RUC
             rve_names = [name for name,_,_ in masks]
             selected_rve = st.selectbox(
-                            "Select an RVE to visualize:", 
-                            rve_names,
-                            key = 'select_rve_rand',
-                            )
+                                        "Select an RUC to visualize:", 
+                                        rve_names,
+                                        key = 'select_ruc_rand',
+                                        )
             st.write("")
             
         with col_rand_out_2:
-            st.markdown(f'<div style="height:{36}px"></div>', unsafe_allow_html=True)
 
             # Gridline checkbox
+            st.markdown(f'<div style="height:{36}px"></div>', unsafe_allow_html=True)
             show_grid_rand = st.checkbox("Show Grid Lines", value=True, key='grid_check_rand')
             st.write("")
 
-        # -- Create fiber color selector
+        # Create fiber color selector
         with col_rand_out_3:
+
+            # Get the color list and default color
+            color_list, def_color = UI_Definitions('Fiber')
+
+            # Set the fiber color selector
             if 'fiber_color_rand' not in st.session_state:
-                st.session_state['fiber_color_rand'] = 'blue'
+                st.session_state['fiber_color_rand'] = def_color
             fib_color = st.selectbox(
-                    "Fiber Color",
-                    ["white", "black", "red", "green", "blue", "yellow", "purple"],
-                    key = 'fiber_color_rand'
-                )
+                                    "Fiber Color",
+                                    color_list,
+                                    key = 'fiber_color_rand'
+                                    )   
             st.write("")
             
-        # -- Create matrix color selector
+        # Create matrix color selector
         with col_rand_out_4:
+
+            # Get the color list and default color
+            color_list, def_color = UI_Definitions('Matrix')
+
+            # Set the matrix color selector
             if 'matrix_color_rand' not in st.session_state:
-                st.session_state['matrix_color_rand'] = 'red'
+                st.session_state['matrix_color_rand'] = def_color
             mat_color = st.selectbox(
-                    "Matrix Color",
-                    ["white", "black", "red", "green", "blue", "yellow", "purple"],
-                    key = 'matrix_color_rand'
-                )
+                                    "Matrix Color",
+                                    color_list,
+                                    key = 'matrix_color_rand'
+                                    )   
             st.write("")
             
-        if 'select_rve_rand' in st.session_state:
+        # Only create plot of an RUC exists
+        if 'select_ruc_rand' in st.session_state:
+
             # Get the selected mask
             for name, mask, out in masks:
-                if name == st.session_state['select_rve_rand']:
+                if name == st.session_state['select_ruc_rand']:
                     selected_mask = mask
                     selected_out = out
                     break
-
-            # Decide on grid spacing
-            if show_grid_rand:
-                xgap = 0.5
-                ygap = 0.5
-            else:
-                xgap = None
-                ygap = None
-
-            fig = go.Figure(data=go.Heatmap(
-                    z=selected_mask,
-                    colorscale=[[0, st.session_state['fiber_color_rand']], 
-                                [1, st.session_state['matrix_color_rand']]],
-                    showscale=False,
-                    xgap=xgap,
-                    ygap=ygap
-                ))
-
-            # Layout tweaks 
-            fig.update_layout(
-                margin=dict(l=0, r=0, t=0, b=0),
-                autosize=False,
-                height=350   
-            )
-
-            fig.update_xaxes(
-                showticklabels=False,
-                showgrid=False,
-                zeroline=False,
-                constrain="domain"
-            )
-
-            fig.update_yaxes(
-                showticklabels=False,
-                showgrid=False,
-                zeroline=False,
-                autorange='reversed',
-                scaleanchor="x",
-                constrain="domain"
-            )
+            
+            # Create the plot
+            fig = Plot(selected_mask, st.session_state['fiber_color_rand'], st.session_state['matrix_color_rand'], show_grid_rand)
 
             # Create columns for visualalization and data
-            col_rand_plot_1, col_rand_plot_2, __ = st.columns([1.25, 1.25, 3.75])
+            col_rand_plot_1, col_rand_plot_2, __ = st.columns([2, 2, 4])
 
             # Display the microstruture
             with col_rand_plot_1:
@@ -646,8 +502,10 @@ with tab_rand:
 
             # Create table with actual microstructure properties
             with col_rand_plot_2:
-                data = {'Property':['VF', 'R', 'NB', 'NG'],
-                        'Value':[selected_out['VF'], selected_out['R'], selected_out['NB'], selected_out['NG']]}
+                data = {
+                        'Property':['VF', 'R', 'NB', 'NG'],
+                        'Value':[selected_out['VF'], selected_out['R'], selected_out['NB'], selected_out['NG']],
+                        }
                 df = pd.DataFrame(data)
                 df = df.reset_index(drop=True)
                 st.markdown("")
@@ -659,11 +517,11 @@ with tab_rand:
 
             # Calculate averages and standard deviations
             out_sum = {
-                'VF':[],
-                'R':[],
-                'NB':[],
-                'NG':[],
-                }
+                    'VF':[],
+                    'R':[],
+                    'NB':[],
+                    'NG':[],
+                    }
             
             for name, mask, out in masks:
                 for key in out_sum.keys():
@@ -681,12 +539,13 @@ with tab_rand:
             df_out = pd.DataFrame(rows, columns=["Parameter", "Average", "Standard Deviation"])
 
             # Create columns for the summary table
-            col_rand_sum_1,  __ = st.columns([6.5, 3.5])
+            col_rand_sum_1,  __ = st.columns([4, 4])
             with col_rand_sum_1:
                 st.dataframe(df_out, hide_index=True)
         
             # Create columns for downloading data
-            col_rand_dwnld_1, col_rand_dwnld_2, col_rand_dwnld_3, __ = st.columns([1, 1.2, 1.2, 7.8])
+            st.write('Download the RUCs:')
+            __, col_rand_dwnld_1,  __ = st.columns([0.05, 2, 5.95])
                 
             # Generate CSV Files
             def generate_zip_with_masks_csv(masks):
@@ -703,12 +562,12 @@ with tab_rand:
             # Download to CSV
             with col_rand_dwnld_1:
                     st.download_button(
-                    label="Download All to CSV",
-                    data=zip_bytes_csv,
-                    file_name="RVEs.zip",
-                    mime="application/zip",
-                    key = "download_csv_rand"
-                    )
+                                    label="Download All to CSV",
+                                    data=zip_bytes_csv,
+                                    file_name="RVEs.zip",
+                                    mime="application/zip",
+                                    key = "download_csv_rand"
+                                    )
 
             # Generate RUC Files
             def generate_zip_with_masks_ruc(masks):
@@ -733,14 +592,14 @@ with tab_rand:
             zip_bytes_ruc = generate_zip_with_masks_ruc(st.session_state['masks_rand'])
 
             # Download for *RUC
-            with col_rand_dwnld_2:
+            with col_rand_dwnld_1:
                 st.download_button(
-                label="Download All *RUC Files",
-                data=zip_bytes_ruc,
-                file_name="RVEs_MAC.zip",
-                mime="application/zip",
-                key = "download_ruc_rand"
-                )
+                                label="Download All *RUC Files",
+                                data=zip_bytes_ruc,
+                                file_name="RVEs_MAC.zip",
+                                mime="application/zip",
+                                key = "download_ruc_rand"
+                                )
 
             # Download images
             def parse_color_to_rgb(color_str):
@@ -774,19 +633,19 @@ with tab_rand:
                 return zip_buffer
             
             # Download for *RUC
-            with col_rand_dwnld_3:
+            with col_rand_dwnld_1:
                 zip_bytes = generate_zip_with_all_mask_images(
-                    masks,
-                    st.session_state['fiber_color_rand'],
-                    st.session_state['matrix_color_rand']
-                )
+                                                            masks,
+                                                            st.session_state['fiber_color_rand'],
+                                                            st.session_state['matrix_color_rand']
+                                                            )
                 
                 st.download_button(
-                    label="Download All Images",
-                    data=zip_bytes,
-                    file_name="All_RVE_Images.zip",
-                    mime="application/zip",
-                )
+                                label="Download All Images",
+                                data=zip_bytes,
+                                file_name="All_RVE_Images.zip",
+                                mime="application/zip",
+                                )   
 
 #------------------------------------------------------------------------------------------------------------------------------------------
 #   GENERATED MICROSTRUCTURE FROM IMAGE
@@ -795,31 +654,39 @@ with tab_rand:
 
 # Segmented Image Microstructure Generation
 with tab_img:
+
     # Create Header
     st.markdown("## Generate RUC from Segmented Image")
 
     # Create description
     st.markdown("""Generate a RUC microstructure from a segmented image. 
-                Upload a segmented image and specify parameters to visualize and download the RUC data.""")
+                Upload a segmented image and specify parameters to visualize and download the RUC data.
+                Create a statistically equivalent RUC using the optimization tool.""")
 
     # Allow file upload
     uploaded_file = st.file_uploader("Choose a file", type=["png","jpg"], key = 'file_upload_img')
 
     # Display the image
     if uploaded_file is not None:
+        
+        #Read imate from file 
         file_bytes = np.frombuffer(uploaded_file.read(), np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)  # BGR
 
-        # -- Create columns for organization
-        col_img_disp_1, col_img_disp_2, col_img_disp_3 = st.columns([1.2, 1, 1])
+        # Create columns for organization
+        col_img_disp_1, col_img_disp_2, col_img_disp_3 = st.columns([2, 1, 1])
 
         with col_img_disp_1:
+
+            # Create the image
             st.image(img, channels="BGR")
 
+            # Set color options
             blue_mask  = np.all(img == [255, 0, 0], axis=2)
             green_mask = np.all(img == [0, 255, 0], axis=2)
             red_mask   = np.all(img == [0, 0, 255], axis=2)
 
+            # Find segmented colors
             colors = []
             if np.any(blue_mask):
                 colors.append('Blue')
@@ -828,22 +695,26 @@ with tab_img:
             if np.any(red_mask):
                 colors.append('Red')
 
+        # Reset W and H if reduction size defined
         def on_red_size_change():
             st.session_state.w_img = None
             st.session_state.h_img = None
 
+        # Reset/set reduction size and H if W defined
         def on_w_img_change():
             st.session_state.red_size_img = None
             # If h_img is None or "other", set default of 100
             if st.session_state.h_img is None:
                 st.session_state.h_img = 100
 
+        # Reset/set reduction size and W if H defined
         def on_h_img_change():
             st.session_state.red_size_img = None
             # If w_img is None or "other", set default of 100
             if st.session_state.w_img is None:
                 st.session_state.w_img = 100
 
+        # Initialize session state variables
         if 'w_img' not in st.session_state:
             st.session_state.w_img = None
         if 'h_img' not in st.session_state:
@@ -852,95 +723,114 @@ with tab_img:
             st.session_state.red_size_img = 0.2
 
         with col_img_disp_2:
+
+            # Create select box for fiber color
             color = st.selectbox(
-                "Select Fiber Color in Image",
-                colors,
-                key='color_select_img'
-            )
+                                "Select Fiber Color in Image",
+                                colors,
+                                key='color_select_img'
+                                )
 
+            # Create input for number of subcells in W
             w_img = st.number_input(
-                'RUC Width (subcells)',
-                key='w_img',
-                step=1,
-                min_value=1,
-                max_value=None,
-                on_change=on_w_img_change
-            )
+                                'RUC Width (subcells)',
+                                key='w_img',
+                                step=1,
+                                min_value=1,
+                                max_value=None,
+                                on_change=on_w_img_change
+                                )
 
+            # Create input for max nub length
             nub_img = st.number_input(
-                'Max Nub Length (pixels)',
-                key='nub_img',
-                step=1,
-                min_value=1,
-                max_value=5,
-                value = 1,
-            )
+                                    'Max Nub Length (pixels)',
+                                    key='nub_img',
+                                    step=1,
+                                    min_value=1,
+                                    max_value=5,
+                                    value = 1,
+                                    )
 
+            # Create checkbox to remove touching fiber sbucells
             touch_img = st.checkbox("Remove Touching Fiber Subcells", value=True, key='touch_check_img')
 
         with col_img_disp_3:
+
+            # Create input for reduction size
             red_size = st.number_input(
-                'Reduction Size',
-                key='red_size_img',
-                step=0.01,
-                min_value=0.01,
-                max_value=1.,
-                on_change=on_red_size_change
-            )
+                                    'Reduction Size',
+                                    key='red_size_img',
+                                    step=0.01,
+                                    min_value=0.01,
+                                    max_value=1.,
+                                    on_change=on_red_size_change
+                                    )
 
+            # Create input for number of subcells in H
             h_img = st.number_input(
-                'RUC Height (subcells)',
-                key='h_img',
-                step=1,
-                min_value=1,
-                max_value=None,
-                on_change=on_h_img_change
-            )
+                                    'RUC Height (subcells)',
+                                    key='h_img',
+                                    step=1,
+                                    min_value=1,
+                                    max_value=None,
+                                    on_change=on_h_img_change
+                                    )
 
+            # Create input for maximum corner length
             corner_img = st.number_input(
-                'Max Corner Length (pixels)',
-                key='corner_img',
-                step=1,
-                min_value=1,
-                max_value=5,
-                value = 1,
-            )
+                                        'Max Corner Length (pixels)',
+                                        key='corner_img',
+                                        step=1,
+                                        min_value=1,
+                                        max_value=5,
+                                        value = 1,
+                                        )
 
-        # -- Create columns for organization
-        col_img_gen_1, col_img_gen_2, col_img_gen_3, col_img_gen_4, __ = st.columns([1, 1, 1, 1, 7])
+        # Create columns for organization
+        col_img_gen_1, col_img_gen_2, col_img_gen_3, col_img_gen_4, __ = st.columns([1, 1, 1, 1, 4])
 
-        # -- Create the generate RUC button
+        # Create the generate RUC button
         with col_img_gen_1:
             st.markdown(f'<div style="height:{26}px"></div>', unsafe_allow_html=True)
             generate_clicked_img = st.button("Generate RUC", key = 'gen_button_img')
             st.write("")
 
-        # -- Create the gridline checkbox
+        # Create the gridline checkbox
         with col_img_gen_2:
             st.markdown(f'<div style="height:{36}px"></div>', unsafe_allow_html=True)
             show_grid_img = st.checkbox("Show Grid Lines", value=True, key='grid_check_img')
             st.write("")
 
-        # -- Create fiber color selector
+        # Create fiber color selector
         with col_img_gen_3:
+
+            # Get the color list and default color
+            color_list, def_color = UI_Definitions('Fiber')
+
+            # Set the fiber color selector
             if 'fiber_color_img' not in st.session_state:
-                st.session_state['fiber_color_img'] = 'blue'
+                st.session_state['fiber_color_img'] = def_color
             fib_color = st.selectbox(
-                    "Fiber Color",
-                    ["white", "black", "red", "green", "blue", "yellow", "purple"],
-                    key = 'fiber_color_img'
-                )
+                                    "Fiber Color",
+                                    color_list,
+                                    key = 'fiber_color_img'
+                                    )
             st.write("")
             
-        # -- Create matrix color selector
+        # Create matrix color selector
         with col_img_gen_4:
+
+            # Get the color list and default color
+            color_list, def_color = UI_Definitions('Matrix')
+
+            # Set the matrix color selector
             if 'matrix_color_img' not in st.session_state:
-                st.session_state['matrix_color_img'] = 'red'
+                st.session_state['matrix_color_img'] = def_color
             mat_color = st.selectbox(
-                    "Matrix Color",
-                    ["white", "black", "red", "green", "blue", "yellow", "purple"],
-                    key = 'matrix_color_img'
-                )
+                                    "Matrix Color",
+                                    color_list,
+                                    key = 'matrix_color_img'
+                                    )
             st.write("")
 
         # If generate is clicked, run function and save mask in session_state
@@ -952,67 +842,33 @@ with tab_img:
             if color == 'Red':
                 img_color = [255, 0, 0]
 
+            # Create input array for fiber idealization
             Input = {
-                'Image':img,
-                'ReductionSize':red_size,
-                'W':w_img,
-                'L':h_img,
-                'Colors':img_color,
-                'MaxNub':nub_img,
-                'MaxCorner':corner_img,
-                'TouchOption': touch_img,
-                }
+                    'Image':img,
+                    'ReductionSize':red_size,
+                    'W':w_img,
+                    'L':h_img,
+                    'Colors':img_color,
+                    'MaxNub':nub_img,
+                    'MaxCorner':corner_img,
+                    'TouchOption': touch_img,
+                    }
             
+            # Run the idealization algorithm
             with st.spinner('Generating Microstructure...'):
                 st.session_state['mask_img'] = Segmented(Input)
 
         # Only plot if we have a mask
         if 'mask_img' in st.session_state:
+
+            # Get the mask
             mask, out = st.session_state['mask_img']
 
-            # Decide on grid spacing
-            if show_grid_img:
-                xgap = 0.5
-                ygap = 0.5
-            else:
-                xgap = None
-                ygap = None
-
-            # Create Plotly figure
-            fig = go.Figure(data=go.Heatmap(
-                    z=mask,
-                    colorscale=[[0, st.session_state['fiber_color_img']], 
-                                [1, st.session_state['matrix_color_img']]],
-                    showscale=False,
-                    xgap=xgap,
-                    ygap=ygap
-                ))
-
-            # Layout tweaks 
-            fig.update_layout(
-                margin=dict(l=0, r=0, t=0, b=0),
-                autosize=False,
-                height=350  
-            )
-
-            fig.update_xaxes(
-                showticklabels=False,
-                showgrid=False,
-                zeroline=False,
-                constrain="domain"
-            )
-
-            fig.update_yaxes(
-                showticklabels=False,
-                showgrid=False,
-                zeroline=False,
-                autorange='reversed',
-                scaleanchor="x",
-                constrain="domain"
-            )
+            # Create the plot
+            fig = Plot(mask, st.session_state['fiber_color_img'], st.session_state['matrix_color_img'], show_grid_img)
 
             # Create columns for visualalization and data
-            col_img_plot_1, col_img_plot_2, __ = st.columns([1.1, 1.15, 3.85])
+            col_img_plot_1, col_img_plot_2, __ = st.columns([2, 2, 4])
 
             # Display the microstruture
             with col_img_plot_1:
@@ -1020,8 +876,10 @@ with tab_img:
 
             # Create table with actual microstructure properties
             with col_img_plot_2:
-                data = {'Property':['VF', 'R', 'NB', 'NG'],
-                        'Value':[out['VF'], out['R'], out['NB'], out['NG']]}
+                data = {
+                        'Property':['VF', 'R', 'NB', 'NG'],
+                        'Value':[out['VF'], out['R'], out['NB'], out['NG']],
+                        }
                 df = pd.DataFrame(data)
                 df = df.reset_index(drop=True)
                 st.markdown("")
@@ -1032,27 +890,402 @@ with tab_img:
             ruc_data = WriteRUC(mask)
 
             # Create columns for downloading data
-            col_img_dwnld_1, col_img_dwnld_2, __ = st.columns([1, 1, 9])
+            st.write ('Download the RUC:')
+            __, col_img_dwnld_1, __ = st.columns([0.05, 2, 5.95])
 
-            # Download to CSV
             with col_img_dwnld_1:
+                # Download to CSV
                 st.download_button(
-                    label="Download  CSV",
-                    data=csv_data,
-                    file_name="ruc.csv",
-                    mime="text/csv",
-                    key="download_csv_img"
-                )
+                                label="Download  CSV",
+                                data=csv_data,
+                                file_name="ruc.csv",
+                                mime="text/csv",
+                                key="download_csv_img"
+                                )
 
-            # Download for *RUC
-            with col_img_dwnld_2:
+                # Download for *RUC
                 st.download_button(
-                label="Download *RUC File",
-                data=ruc_data,
-                file_name="ruc_data.txt",
-                mime="text/plain",
-                key="download_ruc_img"
-            )
+                                label="Download *RUC File",
+                                data=ruc_data,
+                                file_name="ruc_data.txt",
+                                mime="text/plain",
+                                key="download_ruc_img"
+                                )
+                
+    # Initialize session state to show optimization inputs
+    if "show_opt_inputs" not in st.session_state:
+        st.session_state.show_opt_inputs = False
+        st.session_state.show_opt_img = False
+
+    # Only create optimization inputs if a mask exists
+    try:
+        # Read the mask
+        if st.session_state['mask_img']:
+
+            # Separator for organization
+            st.markdown("---")
+
+            # Create the RVE
+            create_rve_img = st.button('Create RVE', key = 'create_rve_img')
+
+            if create_rve_img:
+
+                # Set session state
+                st.session_state.show_opt_inputs = True
+                
+            # Create optimization inputs
+            if st.session_state.show_opt_inputs:
+
+                # Create columns for microstructure and definition selection
+                col_img_alg_1, __= st.columns([1, 1])
+
+                # Create input for microstructure type
+                with col_img_alg_1:
+
+                    # Get the list of available algorithms
+                    algo_list = UI_Definitions('AlgorithmList')
+
+                    # Create the input
+                    alg_opt_img = st.selectbox(
+                                            "Select an algorithm:",
+                                            algo_list,
+                                            key = 'alg_opt_img',
+                                            )
+
+                # Soft Body Dynamics
+                if alg_opt_img == "Soft Body Dynamics":
+                    input_space_img, constants_img, opt_settings_img = UI_Definitions('SBD_Opt')
+                    st.session_state['input_space_img'] = input_space_img
+
+                # Create inputs columns
+                st.markdown('### Input Space')
+                col_img_optin_1, col_img_optin_2, col_img_optin_3, __ = st.columns([1.5, 2, 2, 5.5])
+
+                # Add labels
+                with col_img_optin_1:
+                    st.write('Parameters')
+                with col_img_optin_2:
+                    st.write('Lower Bound')
+                with col_img_optin_3:
+                    st.write('Upper Bound')
+                
+                # Create inputs
+                for i, key in enumerate(input_space_img.keys()):
+                    enabled_key = f"optin_check_{i}_img"
+                    low_key     = f"optin_num_{i}_low_img"
+                    high_key    = f"optin_num_{i}_high_img"
+
+                    step    = input_space_img[key][1]
+                    min_v   = input_space_img[key][2]
+                    max_v   = input_space_img[key][3]
+                    low_def = input_space_img[key][4]
+                    high_def= input_space_img[key][5]
+                    disp    = input_space_img[key][6]
+                    frmt    = input_space_img[key][7]
+
+                    # Create row
+                    with st.container():
+                        col1, col2, col3, __ = st.columns([1.5, 2, 2, 5.5])
+
+                        # Checkbox (enable/disable row)
+                        with col1:
+                            enabled = st.checkbox(disp, value=True, key=enabled_key)
+
+                        # Low bound
+                        with col2:
+
+                            # Get previous or default
+                            low_val = st.session_state.get(low_key, low_def)
+
+                            # Constrain lower bound so it can’t be above the current upper bound
+                            current_high = st.session_state.get(high_key, high_def)
+                            max_low = current_high
+
+                            # Create input
+                            low_val = st.number_input(
+                                                    "Low",
+                                                    key=low_key,
+                                                    value=low_val,
+                                                    step=step,
+                                                    min_value=min_v,
+                                                    max_value=max_low,
+                                                    format=frmt,
+                                                    label_visibility="collapsed",
+                                                    disabled=not enabled
+                                                    )
+
+                        # High bound
+                        with col3:
+
+                            # Get previous or default
+                            high_val = st.session_state.get(high_key, high_def)
+
+                            # Constrain high bound so it can't be below current low
+                            current_low = st.session_state.get(low_key, low_def)
+                            min_high = current_low
+
+                            # Create input
+                            high_val = st.number_input(
+                                                    "High",
+                                                    key=high_key,
+                                                    value=high_val,
+                                                    step=step,
+                                                    min_value=min_high,
+                                                    max_value=max_v,
+                                                    format=frmt,
+                                                    label_visibility="collapsed",
+                                                    disabled=not enabled
+                                                    )
+
+                    # Store the range only if enabled
+                    if enabled:
+                        values[key] = (low_val, high_val)
+                    else:
+                        values[key] = None   # or whatever you prefer
+
+                # Create RVE constant columns
+                st.markdown('### RVE Definition')
+                col_img_rve_1, col_img_rve_2,  __ = st.columns([2, 2, 4])
+
+                # Create numeric inputs
+                for key in constants_img.keys():
+
+                    # Determine column
+                    colnum = col_img_rve_1 if constants_img[key][0] == 1 else col_img_rve_2
+
+                    with colnum:
+
+                        # Get min, max, step, default, and display name
+                        step        = constants_img[key][2]
+                        min_v       = constants_img[key][3]
+                        max_v       = constants_img[key][4]
+                        default     = constants_img[key][5]
+                        disp_name   = constants_img[key][6]
+
+                        # Set widget key
+                        widget_key = f"opt_rve_{key}_img"
+
+                        # Restore previous or use default
+                        if widget_key in st.session_state:
+                            val = st.session_state[widget_key]
+
+                            # Clamp if needed
+                            if min_v is not None and val < min_v:
+                                val = min_v
+                            if max_v is not None and val > max_v:
+                                val = max_v
+                        else:
+                            val = default
+
+                        # Render input 
+                        values[key] = st.number_input(
+                                                    disp_name,
+                                                    key=widget_key,
+                                                    value=val,
+                                                    step=step,
+                                                    min_value=min_v,
+                                                    max_value=max_v,
+                                                    )
+
+                # Create optimization settings columns
+                st.markdown('### Optimization Settings')
+                col_img_opt_1, col_img_opt_2,  __ = st.columns([2, 2, 4])
+
+                # Create numeric inputs
+                for key in opt_settings_img.keys():
+
+                    # Determine column
+                    colnum = col_img_opt_1 if opt_settings_img[key][0] == 1 else col_img_opt_2
+
+                    with colnum:
+
+                        # Get min, max, step, default, and display name
+                        step        = opt_settings_img[key][2]
+                        min_v       = opt_settings_img[key][3]
+                        max_v       = opt_settings_img[key][4]
+                        default     = opt_settings_img[key][5]
+                        disp_name   = opt_settings_img[key][6]
+
+                        # Set widget key
+                        widget_key = f"opt_opt_{key}_img"
+
+                        # Restore previous or use default
+                        if widget_key in st.session_state:
+                            val = st.session_state[widget_key]
+
+                            # Clamp if needed
+                            if min_v is not None and val < min_v:
+                                val = min_v
+                            if max_v is not None and val > max_v:
+                                val = max_v
+                        else:
+                            val = default
+
+                        # Render input 
+                        values[key] = st.number_input(
+                                                    disp_name,
+                                                    key=widget_key,
+                                                    value=val,
+                                                    step=step,
+                                                    min_value=min_v,
+                                                    max_value=max_v,
+                                                    )
+                        
+                # Create button to optimize the RVE
+                opt_rve_img = st.button('Optimize RVE', key = 'opt_rve_img')
+
+                if opt_rve_img:
+                    
+                    # Gather inputs
+                    optimization_inputs = {}
+
+                    if alg_opt_img == "Soft Body Dynamics":
+                        func_opt_img, func_inp_img = UI_Definitions("SBD_Opt_Run", st.session_state, 'img')
+
+                    # Call the function
+                    with st.spinner('Running Optimization...'):
+
+                        # Callback function to display output
+                        def ui_callback_img(msg):
+                            # Each new message will appear below previous ones
+                            # append messages to the scrollable box
+                            if 'messages_img' not in st.session_state:
+                                st.session_state['messages_img'] = []
+                            st.session_state['messages_img'].append(msg)
+                            
+                            # render all messages inside scrollable div
+                            msgs_html = "<br>".join(st.session_state['messages_img'])
+                            progress_box.markdown(f'<div class="scrollable-box">{msgs_html}</div>', unsafe_allow_html=True)
+
+                        # Create scrollable style
+                        scrollable_style = """
+                            <style>
+                            .scrollable-box {
+                                max-height: 600px;
+                                overflow-y: auto;
+                                border: 1px solid #ddd;
+                                padding: 5px;
+                                background-color: #f9f9f9;
+                            }
+                            </style>
+                        """
+
+                        # Display progress bar
+                        st.markdown(scrollable_style, unsafe_allow_html=True)
+                        st.session_state['messages_img'] = []
+                        progress_box = st.empty()
+
+                        # Run the function
+                        best_mask, best_out, best_error = func_opt_img(**func_inp_img, callback = ui_callback_img)
+
+                        # Get best values
+                        best_out['Error'] = best_error
+                        st.session_state['mask_opt_img'] = [best_mask, best_out]
+
+                        # Reset progress bar
+                        progress_box.empty()
+
+                        # Set sessions state variable
+                        st.session_state.show_opt_img = True
+
+                if st.session_state.show_opt_img:
+
+                    # Create columns for organization
+                    col_opt_out_1, col_opt_out_2, col_opt_out_3, __ = st.columns([1, 1, 1, 3])
+
+                    # Create the gridline checkbox
+                    with col_opt_out_1:
+                        st.markdown(f'<div style="height:{36}px"></div>', unsafe_allow_html=True)
+                        show_grid_opt_img = st.checkbox("Show Grid Lines", value=True, key='grid_check_opt_img')
+                        st.write("")
+
+                    # Create fiber color selector
+                    with col_opt_out_2:
+
+                        # Get the color list and default color
+                        color_list, def_color = UI_Definitions('Fiber')
+
+                        # Set the fiber color selector
+                        if 'fiber_color_opt_img' not in st.session_state:
+                            st.session_state['fiber_color_opt_img'] = def_color
+                        fib_color = st.selectbox(
+                                                "Fiber Color",
+                                                color_list,
+                                                key = 'fiber_color_opt_img'
+                                                )
+                        st.write("")
+                        
+                    # Create matrix color selector
+                    with col_opt_out_3:
+
+                        # Get the color list and default color
+                        color_list, def_color = UI_Definitions('Matrix')
+
+                        # Set the matrix color selector
+                        if 'matrix_color_opt_img' not in st.session_state:
+                            st.session_state['matrix_color_opt_img'] = def_color
+                        mat_color = st.selectbox(
+                                                "Matrix Color",
+                                                color_list,
+                                                key = 'matrix_color_opt_img'
+                                                )
+                        st.write("")
+
+                    # Plot
+                    if 'mask_opt_img' in st.session_state:
+
+                        # Get the mask
+                        mask, out = st.session_state['mask_opt_img']
+
+                        # Create the plot
+                        fig = Plot(mask, st.session_state['fiber_color_opt_img'], st.session_state['matrix_color_opt_img'], show_grid_opt_img)
+
+                        # Create columns for visualalization and data
+                        col_opt_plot_1, col_opt_plot_2, __ = st.columns([2, 2, 4])
+
+                        # Display the microstruture
+                        with col_opt_plot_1:
+                            st.plotly_chart(fig, width='content', key = 'plot_opt')
+
+                        # Create table with actual microstructure properties
+                        with col_opt_plot_2:
+                            data = {
+                                    'Property':['VF', 'R', 'NB', 'NG', 'Error'],
+                                    'Value':[out['VF'], out['R'], out['NB'], out['NG'], out['Error']],
+                                    }
+                            df = pd.DataFrame(data)
+                            df = df.reset_index(drop=True)
+                            st.markdown("")
+                            st.dataframe(df, key = 'out_table_opt', hide_index=True) 
+
+                        # Create Files
+                        csv_data = WriteCSV(mask)
+                        ruc_data = WriteRUC(mask)
+
+                        # Create columns for downloading data
+                        st.write('Download the RUC:')
+                        __, col_opt_img_dwnld_1, __ = st.columns([0.05, 2, 5.95])
+
+                        with col_opt_img_dwnld_1:
+                            # Download to CSV
+                            st.download_button(
+                                            label="Download  CSV",
+                                            data=csv_data,
+                                            file_name="ruc.csv",
+                                            mime="text/csv",
+                                            key="download_csv_opt_img"
+                                            )
+
+                            # Download for *RUC
+                            st.download_button(
+                                            label="Download *RUC File",
+                                            data=ruc_data,
+                                            file_name="ruc_data.txt",
+                                            mime="text/plain",
+                                            key="download_ruc_opt_img"
+                                            )
+    except:
+        pass
 
 #------------------------------------------------------------------------------------------------------------------------------------------
 #   VISUALIZE AN RUC
@@ -1065,7 +1298,7 @@ with tab_viz:
     st.markdown("## RUC Visualizer")
 
     # Create description
-    st.markdown("Upload a CSV or *RUC file to visualize the microstructure.")
+    st.markdown("Upload a CSV or *RUC file to visualize the microstructure. Create a statistically equivalent RUC using the optimization tool.")
 
     # Set flag
     flag = 0
@@ -1075,6 +1308,7 @@ with tab_viz:
 
     # Read Data
     if uploaded_file is not None:
+
         # Read file as string (for text files)
         content = uploaded_file.read().decode("utf-8")
 
@@ -1095,86 +1329,61 @@ with tab_viz:
                     st.session_state['mask_viz'] = mask
                     flag = 1
 
-
         # Display RUC
         if flag == 1:
-            # -- Create columns for organization
-            col_viz_disp_1, col_viz_disp_2, col_viz_disp_3, __ = st.columns([1, 1, 1, 8])
 
-            # -- Create the gridline checkbox
+            # Create columns for organization
+            col_viz_disp_1, col_viz_disp_2, col_viz_disp_3, __ = st.columns([1, 1, 1, 3])
+
+            # Create the gridline checkbox
             with col_viz_disp_1:
                 st.markdown(f'<div style="height:{36}px"></div>', unsafe_allow_html=True)
                 show_grid_viz = st.checkbox("Show Grid Lines", value=True, key='grid_check_viz')
                 st.write("")
 
-            # -- Create fiber selector
+            # Create fiber selector
             with col_viz_disp_2:
+
+                # Get the color list and default color
+                color_list, def_color = UI_Definitions('Fiber')
+
+                # Set the fiber color selector
                 if 'fiber_color_viz' not in st.session_state:
-                    st.session_state['fiber_color_viz'] = 'blue'
+                    st.session_state['fiber_color_viz'] = def_color
                 fib_color = st.selectbox(
-                        "Fiber Color",
-                        ["white", "black", "red", "green", "blue", "yellow", "purple"],
-                        key = 'fiber_color_viz'
-                    )
+                                        "Fiber Color",
+                                        color_list,
+                                        key = 'fiber_color_viz'
+                                        )
                 st.write("")
                 
-            # -- Create =matrix color selector
+            # Create =matrix color selector
             with col_viz_disp_3:
+
+                # Get the color list and default color
+                color_list, def_color = UI_Definitions('Matrix')
+
+                # Set the matrix color selector
                 if 'matrix_color_viz' not in st.session_state:
-                    st.session_state['matrix_color_viz'] = 'red'
+                    st.session_state['matrix_color_viz'] = def_color
                 mat_color = st.selectbox(
-                        "Matrix Color",
-                        ["white", "black", "red", "green", "blue", "yellow", "purple"],
-                        key = 'matrix_color_viz'
-                    )
+                                        "Matrix Color",
+                                        color_list,
+                                        key = 'matrix_color_viz'
+                                        )
                 st.write("")
 
             # Only plot if we have a mask
             if 'mask_viz' in st.session_state:
+
+                # Get the mask
                 mask = st.session_state['mask_viz']
 
-                # Decide on grid spacing
-                if show_grid_viz:
-                    xgap = 0.5
-                    ygap = 0.5
-                else:
-                    xgap = None
-                    ygap = None
-
-                fig = go.Figure(data=go.Heatmap(
-                    z=mask,
-                    colorscale=[[0, st.session_state['fiber_color_viz']], 
-                                [1, st.session_state['matrix_color_viz']]],
-                    showscale=False,
-                    xgap=xgap,
-                    ygap=ygap
-                ))
-
-                # Layout tweaks 
-                fig.update_layout(
-                    margin=dict(l=0, r=0, t=0, b=0),
-                    autosize=False,
-                    height=350   
-                )
-
-                fig.update_xaxes(
-                    showticklabels=False,
-                    showgrid=False,
-                    zeroline=False,
-                    constrain="domain"
-                )
-
-                fig.update_yaxes(
-                    showticklabels=False,
-                    showgrid=False,
-                    zeroline=False,
-                    autorange='reversed',
-                    scaleanchor="x",
-                    constrain="domain"
-                )
+                # Create the plot
+                fig = Plot(mask, st.session_state['fiber_color_viz'], st.session_state['matrix_color_viz'], show_grid_viz)
 
                 # Create columns for visualalization and data
-                col_viz_plot_1, col_viz_plot_2, __ = st.columns([1.1, 1, 4])
+                col_viz_plot_1, col_viz_plot_2, __ = st.columns([1, 1, 2])
 
                 # Display the microstruture
                 with col_viz_plot_1:
@@ -1182,8 +1391,10 @@ with tab_viz:
 
                 # Create table with actual microstructure properties
                 with col_viz_plot_2:
-                    data = {'Property':['VF', 'NB', 'NG'],
-                            'Value':[out['VF'], out['NB'], out['NG']]}
+                    data = {
+                            'Property':['VF', 'NB', 'NG'],
+                            'Value':[out['VF'], out['NB'], out['NG']],
+                            }
                     df = pd.DataFrame(data)
                     df = df.reset_index(drop=True)
                     st.markdown("")
@@ -1194,24 +1405,406 @@ with tab_viz:
                 ruc_data = WriteRUC(mask)
 
                 # Create columns for downloading data
-                col_viz_dwnld_1, col_viz_dwnld_2, __ = st.columns([1, 1, 9])
+                st.write("Download the RUC:")
+                __, col_viz_dwnld_1,  __ = st.columns([0.05, 2, 5.95])
 
-                # Download to CSV
                 with col_viz_dwnld_1:
+                    # Download to CSV
                     st.download_button(
-                        label="Download CSV",
-                        data=csv_data,
-                        file_name="ruc.csv",
-                        mime="text/csv",
-                        key = "download_csv_viz"
-                    )
+                                    label="Download CSV",
+                                    data=csv_data,
+                                    file_name="ruc.csv",
+                                    mime="text/csv",
+                                    key = "download_csv_viz"
+                                    )
 
-                # Download for *RUC
-                with col_viz_dwnld_2:
+                    # Download for *RUC
                     st.download_button(
-                    label="Download *RUC File",
-                    data=ruc_data,
-                    file_name="ruc_data.txt",
-                    mime="text/plain",
-                    key="download_ruc_viz"
-                )
+                                    label="Download *RUC File",
+                                    data=ruc_data,
+                                    file_name="ruc_data.txt",
+                                    mime="text/plain",
+                                    key="download_ruc_viz"
+                                    )
+
+    # Initialize session state to show optimization inputs
+    if "show_viz_inputs" not in st.session_state:
+        st.session_state.show_viz_inputs = False
+        st.session_state.show_opt_viz = False
+
+    # Only create optimization inputs if a mask exists
+    try:
+        if 'mask_viz' in st.session_state:
+
+            # Determine if characterization is possible
+            try:
+                RandomCharacterization(mask, nbins = 10)
+            except:
+                st.session_state.show_viz_inputs = False
+                st.stop()
+
+            # Separator for organization
+            st.markdown("---")
+
+            # Create the RVE Button
+            create_rve_viz = st.button('Create RVE', key = 'create_rve_viz')
+
+            if create_rve_viz:
+
+                # Set session state
+                st.session_state.show_viz_inputs = True
+
+            if st.session_state.show_viz_inputs:
+
+                # Create columns for microstructure and definition selection
+                col_viz_alg_1, __= st.columns([1, 1])
+
+                # Create input for microstructure type
+                with col_viz_alg_1:
+
+                    # Get the list of available algorithms
+                    algo_list = UI_Definitions('AlgorithmList')
+
+                    alg_opt_viz = st.selectbox(
+                                            "Select an algorithm:",
+                                            algo_list,
+                                            key = 'alg_opt_viz',
+                                            )
+
+                # Soft Body Dynamics
+                if alg_opt_viz == "Soft Body Dynamics":
+                    input_space_viz, constants_viz, opt_settings_viz = UI_Definitions('SBD_Opt')
+                    st.session_state['input_space_viz'] = input_space_viz
+                    
+                # Create inputs columns
+                st.markdown('### Input Space')
+                col_viz_optin_1, col_viz_optin_2, col_viz_optin_3, __ = st.columns([1.5, 2, 2, 5.5])
+
+                # Add lables
+                with col_viz_optin_1:
+                    st.write('Parameters')
+                with col_viz_optin_2:
+                    st.write('Lower Bound')
+                with col_viz_optin_3:
+                    st.write('Upper Bound')
+                
+                for i, key in enumerate(input_space_viz.keys()):
+                    enabled_key = f"optin_check_{i}_viz"
+                    low_key     = f"optin_num_{i}_low_viz"
+                    high_key    = f"optin_num_{i}_high_viz"
+
+                    step    = input_space_viz[key][1]
+                    min_v   = input_space_viz[key][2]
+                    max_v   = input_space_viz[key][3]
+                    low_def = input_space_viz[key][4]
+                    high_def= input_space_viz[key][5]
+                    disp    = input_space_viz[key][6]
+                    frmt    = input_space_viz[key][7]
+
+                    # Create row
+                    with st.container():
+                        col1, col2, col3, __ = st.columns([1.5, 2, 2, 5.5])
+
+                        # Checkbox (enable/disable row)
+                        with col1:
+                            enabled = st.checkbox(disp, value=True, key=enabled_key)
+
+                        # Low bound
+                        with col2:
+                            # Get previous or default
+                            low_val = st.session_state.get(low_key, low_def)
+
+                            # Constrain lower bound so it can’t be above the current upper bound
+                            current_high = st.session_state.get(high_key, high_def)
+                            max_low = current_high
+
+                            # Create input
+                            low_val = st.number_input(
+                                                    "Low",
+                                                    key=low_key,
+                                                    value=low_val,
+                                                    step=step,
+                                                    min_value=min_v,
+                                                    max_value=max_low,
+                                                    format=frmt,
+                                                    label_visibility="collapsed",
+                                                    disabled=not enabled
+                                                    )   
+
+                        # High bound
+                        with col3:
+
+                            # Get previous or default
+                            high_val = st.session_state.get(high_key, high_def)
+
+                            # Constrain high bound so it can't be below current low
+                            current_low = st.session_state.get(low_key, low_def)
+                            min_high = current_low
+
+                            # Create input
+                            high_val = st.number_input(
+                                                    "High",
+                                                    key=high_key,
+                                                    value=high_val,
+                                                    step=step,
+                                                    min_value=min_high,
+                                                    max_value=max_v,
+                                                    format=frmt,
+                                                    label_visibility="collapsed",
+                                                    disabled=not enabled
+                                                    )
+
+                    # Store the range only if enabled
+                    if enabled:
+                        values[key] = (low_val, high_val)
+                    else:
+                        values[key] = None   # or whatever you prefer
+
+                # Create RVE constant columns
+                st.markdown('### RVE Definition')
+                col_viz_rve_1, col_viz_rve_2,  __ = st.columns([2, 2, 4])
+
+                # Create numeric inputs
+                for key in constants_viz.keys():
+
+                    # Determine column
+                    colnum = col_viz_rve_1 if constants_viz[key][0] == 1 else col_viz_rve_2
+
+                    with colnum:
+
+                        # Get min, max, step, default, and display name
+                        step        = constants_viz[key][2]
+                        min_v       = constants_viz[key][3]
+                        max_v       = constants_viz[key][4]
+                        default     = constants_viz[key][5]
+                        disp_name   = constants_viz[key][6]
+
+                        # Set widget key
+                        widget_key = f"opt_rve_{key}_viz"
+
+                        # Restore previous or use default
+                        if widget_key in st.session_state:
+                            val = st.session_state[widget_key]
+
+                            # Clamp if needed
+                            if min_v is not None and val < min_v:
+                                val = min_v
+                            if max_v is not None and val > max_v:
+                                val = max_v
+                        else:
+                            val = default
+
+                        # Render input 
+                        values[key] = st.number_input(
+                                                    disp_name,
+                                                    key=widget_key,
+                                                    value=val,
+                                                    step=step,
+                                                    min_value=min_v,
+                                                    max_value=max_v,
+                                                    )
+
+                # Create optimization settings columns
+                st.markdown('### Optimization Settings')
+                col_viz_opt_1, col_viz_opt_2,  __ = st.columns([2, 2, 4])
+
+                # Create numeric inputs
+                for key in opt_settings_viz.keys():
+
+                    # Determine column
+                    colnum = col_viz_opt_1 if opt_settings_viz[key][0] == 1 else col_viz_opt_2
+
+                    with colnum:
+
+                        # Get min, max, step, default, and display name
+                        step        = opt_settings_viz[key][2]
+                        min_v       = opt_settings_viz[key][3]
+                        max_v       = opt_settings_viz[key][4]
+                        default     = opt_settings_viz[key][5]
+                        disp_name   = opt_settings_viz[key][6]
+
+                        # Set widget key
+                        widget_key = f"opt_opt_{key}_viz"
+
+                        # Restore previous or use default
+                        if widget_key in st.session_state:
+                            val = st.session_state[widget_key]
+
+                            # Clamp if needed
+                            if min_v is not None and val < min_v:
+                                val = min_v
+                            if max_v is not None and val > max_v:
+                                val = max_v
+                        else:
+                            val = default
+
+                        # Render input 
+                        values[key] = st.number_input(
+                                                    disp_name,
+                                                    key=widget_key,
+                                                    value=val,
+                                                    step=step,
+                                                    min_value=min_v,
+                                                    max_value=max_v,
+                                                    )
+
+                # Create button to optimize the RVE
+                opt_rve_viz = st.button('Optimize RVE', key = 'opt_rve_viz')
+
+                if opt_rve_viz:
+                    print('test 1')
+                    # Gather inputs
+                    optimization_inputs = {}
+
+                    if alg_opt_viz == "Soft Body Dynamics":
+                        print('test_inp_1')
+                        func_opt_viz, func_inp_viz = UI_Definitions("SBD_Opt_Run", st.session_state, 'viz')
+                        print('test_inp')
+                        
+                    # Call the function
+                    with st.spinner('Running Optimization...'):
+
+                        # Callback function to display output
+                        def ui_callback_viz(msg):
+                            # Each new message will appear below previous ones
+                            # append messages to the scrollable box
+                            if 'messages_viz' not in st.session_state:
+                                st.session_state['messages_viz'] = []
+                            st.session_state['messages_viz'].append(msg)
+                            
+                            # render all messages inside scrollable div
+                            msgs_html = "<br>".join(st.session_state['messages_viz'])
+                            progress_box.markdown(f'<div class="scrollable-box">{msgs_html}</div>', unsafe_allow_html=True)
+
+                        # Create scrollable style
+                        scrollable_style = """
+                            <style>
+                            .scrollable-box {
+                                max-height: 600px;
+                                overflow-y: auto;
+                                border: 1px solid #ddd;
+                                padding: 5px;
+                                background-color: #f9f9f9;
+                            }
+                            </style>
+                        """
+
+                        # Display progress bar
+                        st.markdown(scrollable_style, unsafe_allow_html=True)
+                        st.session_state['messages_viz'] = []
+                        progress_box = st.empty()
+
+                        # Run the function
+                        best_mask, best_out, best_error = func_opt_viz(**func_inp_viz, callback = ui_callback_viz)
+                        
+                        # Get best values
+                        best_out['Error'] = best_error
+                        st.session_state['mask_opt_viz'] = [best_mask, best_out]
+                        
+
+                        # Reset progress bar
+                        progress_box.empty()
+
+                        # Set session state
+                        st.session_state.show_opt_viz = True
+
+                if st.session_state.show_opt_viz:
+
+                    # Create columns for organization
+                    col_opt_viz_out_1, col_opt_viz_out_2, col_opt_viz_out_3, __ = st.columns([1, 1, 1, 3])
+
+                    # Create the gridline checkbox
+                    with col_opt_viz_out_1:
+                        st.markdown(f'<div style="height:{36}px"></div>', unsafe_allow_html=True)
+                        show_grid_opt_viz = st.checkbox("Show Grid Lines", value=True, key='grid_check_opt_viz')
+                        st.write("")
+
+                    # -Create fiber color selector
+                    with col_opt_viz_out_2:
+
+                        # Get the color list and default color
+                        color_list, def_color = UI_Definitions('Fiber')
+
+                        # Set the fiber color selector
+                        if 'fiber_color_opt_viz' not in st.session_state:
+                            st.session_state['fiber_color_opt_viz'] = def_color
+                        fib_color = st.selectbox(
+                                                "Fiber Color",
+                                                color_list,
+                                                key = 'fiber_color_opt_viz'
+                                                )
+                        st.write("")    
+                        
+                    # Create matrix color selector
+                    with col_opt_viz_out_3:
+
+                        # Get the color list and default color
+                        color_list, def_color = UI_Definitions('Matrix')
+
+                        # Set the matrix color selector
+                        if 'matrix_color_opt_viz' not in st.session_state:
+                            st.session_state['matrix_color_opt_viz'] = def_color
+                        mat_color = st.selectbox(
+                                                "Matrix Color",
+                                                color_list,
+                                                key = 'matrix_color_opt_viz'
+                                                )
+                        st.write("")
+
+                    # Plot
+                    if 'mask_opt_viz' in st.session_state:
+
+                        # Get the mask
+                        mask, out = st.session_state['mask_opt_viz']
+
+                        # Create the plot
+                        fig = Plot(mask, st.session_state['fiber_color_opt_viz'], st.session_state['matrix_color_opt_viz'], show_grid_opt_viz)
+
+                        # Create columns for visualalization and data
+                        col_opt_plot_1, col_opt_plot_2, __ = st.columns([2, 2, 4])
+
+                        # Display the microstruture
+                        with col_opt_plot_1:
+                            st.plotly_chart(fig, width='content', key = 'plot_opt_viz')
+
+                        # Create table with actual microstructure properties
+                        with col_opt_plot_2:
+                            data = {
+                                    'Property':['VF', 'R', 'NB', 'NG', 'Error'],
+                                    'Value':[out['VF'], out['R'], out['NB'], out['NG'], out['Error']]
+                                    }
+                            df = pd.DataFrame(data)
+                            df = df.reset_index(drop=True)
+                            st.markdown("")
+                            st.dataframe(df, key = 'out_table_opt_viz', hide_index=True) 
+
+                        # Create Files
+                        csv_data = WriteCSV(mask)
+                        ruc_data = WriteRUC(mask)
+
+                        # Create columns for downloading data
+                        st.write('Download the RUC:')
+                        __, col_opt_viz_dwnld_1, __ = st.columns([0.05, 2, 5.95])
+
+                        
+                        with col_opt_viz_dwnld_1:
+                            # Download to CSV
+                            st.download_button(
+                                            label="Download  CSV",
+                                            data=csv_data,
+                                            file_name="ruc.csv",
+                                            mime="text/csv",
+                                            key="download_csv_opt_viz"
+                                            )
+
+                            # Download for *RUC
+                            st.download_button(
+                                            label="Download *RUC File",
+                                            data=ruc_data,
+                                            file_name="ruc_data.txt",
+                                            mime="text/plain",
+                                            key="download_ruc_opt_viz"
+                                            )
+
+    except:
+        pass
