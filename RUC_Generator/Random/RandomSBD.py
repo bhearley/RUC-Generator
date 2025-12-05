@@ -1,5 +1,5 @@
 def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps=50000, gamma=1.0,
-              mass=1.0, min_gap=1, n_gen=1, periodic=True, seed=None,
+              mass=1.0, min_gap=1, v_init=2, n_gen=1, periodic=True, seed=None,
               VI=None, RI=None, I=3):
     """
     Generate a random microstructure using soft body dynamics, with optional interface region.
@@ -35,7 +35,7 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps=50000, gamma=1.0,
     # (same as your original function, unchanged)
     def soft_particle_md_periodic(centers, radius, W, H, damping=0.9,
                                   gamma=1.0, dt=0.01, steps=50000,
-                                  k=1000.0, mass=1.0, min_gap=1, periodic=True,
+                                  k=1000.0, mass=1.0, v_init =2, min_gap=1, periodic=True,
                                   v_tol=1e-6):
         N = centers.shape[0]
         velocities = (np.random.rand(N, 2) - 0.5) * 2
@@ -63,7 +63,7 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps=50000, gamma=1.0,
                         if dist > 0:
                             nx, ny = dx/dist, dy/dist
                         else:
-                            nx, ny = np.random.rand(2)-0.5
+                            nx, ny = (np.random.rand(2)-0.5)*(2*v_init)
                             nx, ny = nx/np.hypot(nx, ny), ny/np.hypot(nx, ny)
                         f = k * overlap
                         fx, fy = f * nx, f * ny
@@ -179,7 +179,7 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps=50000, gamma=1.0,
         # Run dynamics
         centers_final, overlap_pct = soft_particle_md_periodic(
             centers, radius, W, H, damping=damping, gamma=gamma, dt=dt,
-            steps=steps, k=k, mass=mass, min_gap=min_gap, periodic=periodic
+            steps=steps, k=k, mass=mass, v_init=v_init, min_gap=min_gap, periodic=periodic
         )
 
         # Voxelate
