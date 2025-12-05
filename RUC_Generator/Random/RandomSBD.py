@@ -38,7 +38,7 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps=50000, gamma=1.0,
                                   k=1000.0, mass=1.0, v_init =2, min_gap=1, periodic=True,
                                   v_tol=1e-6):
         N = centers.shape[0]
-        velocities = (np.random.rand(N, 2) - 0.5) * 2
+        velocities = (np.random.rand(N, 2) - 0.5) * v_init
         for step in range(steps):
             forces = np.zeros_like(centers)
             for i in range(N):
