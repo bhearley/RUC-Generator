@@ -48,13 +48,13 @@ def UI_Definitions(key, vars = None, tag = None):
     if key == 'Hexagonal':
         # Create default values
         def_vals_ord = {
-                    # Col   Type        Step    Min     Max                         Default Display Name    
-                'VF':[1,    'float',    0.001,  0.,     math.pi / (2*math.sqrt(3)), 0.6,    'Fiber Volume Fraction'     ],
-                'R' :[2,    'float',    0.001,  0.,     None,                       10.,    'Fiber Radius'    ],
-                'NB':[1,    'int',      1,      1,      None,                       10,     'Subcells in X'   ],
-                'NG':[2,    'int',      1,      1,      None,                       10,     'Subcells in Y'  ],
-                'F' :[1,    'int',      1,      1,      None,                       1,      'Fiber ID'     ],
-                'M' :[2,    'int',      1,      1,      None,                       2,      'Matrix ID'    ],
+                    # Col   Type        Step    Min     Max                         Default Display Name            # Format
+                'VF':[1,    'float',    0.001,  0.,     math.pi / (2*math.sqrt(3)), 0.6,    'Fiber Volume Fraction',    "%.3f"  ],
+                'R' :[2,    'float',    0.001,  0.,     None,                       10.,    'Fiber Radius',             "%.3f"  ],
+                'NB':[1,    'int',      1,      1,      None,                       10,     'Subcells in X',            "%d"    ],
+                'NG':[2,    'int',      1,      1,      None,                       10,     'Subcells in Y',            "%d"    ],
+                'F' :[1,    'int',      1,      1,      None,                       1,      'Fiber ID',                 "%d"    ],
+                'M' :[2,    'int',      1,      1,      None,                       2,      'Matrix ID',                "%d"    ],
                 }
 
         # Create defintion list
@@ -79,13 +79,13 @@ def UI_Definitions(key, vars = None, tag = None):
     if key == 'Square':
         # Create default values
         def_vals_ord = {
-                    # Col   Type        Step    Min     Max             Default Display Name   
-                'VF':[1,    'float',    0.001,  0.,     math.pi / 4,    0.6,    'Fiber Volume Fraction'    ],
-                'R' :[2,    'float',    0.001,  0.,     None,           10.,    'Fiber Radius'     ],
-                'NB':[1,    'int',      1,      1,      None,           10,     'Subcells in X'    ],
-                'NG':[2,    'int',      1,      1,      None,           10,     'Subcells in Y'    ],
-                'F' :[1,    'int',      1,      1,      None,           1,      'Fiber ID'     ],
-                'M' :[2,    'int',      1,      1,      None,           2,      'Matrix ID'     ],
+                    # Col   Type        Step    Min     Max             Default Display Name                Format
+                'VF':[1,    'float',    0.001,  0.,     math.pi / 4,    0.6,    'Fiber Volume Fraction',    "%.3f"  ],
+                'R' :[2,    'float',    0.001,  0.,     None,           10.,    'Fiber Radius',             "%.3f"  ],
+                'NB':[1,    'int',      1,      1,      None,           10,     'Subcells in X',            "%d"    ],
+                'NG':[2,    'int',      1,      1,      None,           10,     'Subcells in Y',            "%d"    ]       ,
+                'F' :[1,    'int',      1,      1,      None,           1,      'Fiber ID',                 "%d"    ],
+                'M' :[2,    'int',      1,      1,      None,           2,      'Matrix ID',                "%d"    ],
                 }
 
         # Create defintion list
@@ -113,15 +113,15 @@ def UI_Definitions(key, vars = None, tag = None):
                         "Thickness",
                         ]
         vf_vals = {
-                    # Col   Type        Step    Min     Max             Default Display Name   
-                'VI':[1,    'float',    0.001,  0.,     math.pi / 4,    0.1,    'Interface Volume Fraction'    ],
-                'I' :[2,    'int',      1,      1,      None,           3,      'Interface ID'     ],
+                    # Col   Type        Step    Min     Max             Default Display Name                    Format 
+                'VI':[1,    'float',    0.001,  0.,     math.pi / 4,    0.1,    'Interface Volume Fraction',    "%.3f" ],
+                'I' :[2,    'int',      1,      1,      None,           3,      'Interface ID',                 "%d"   ],
                 }
         
         rad_vals = {
-                    # Col   Type        Step    Min     Max             Default Display Name   
-                'RI':[1,    'float',    0.001,  0.,     None,           2.,     'Interface Thickness'    ],
-                'I' :[2,    'int',      1,      1,      None,           3,      'Interface ID'     ],
+                    # Col   Type        Step    Min     Max             Default Display Name            Format
+                'RI':[1,    'float',    0.001,  0.,     None,           2.,     'Interface Thickness',  "%.3f"   ],
+                'I' :[2,    'int',      1,      1,      None,           3,      'Interface ID'          "%d"     ],
                 }
         
         int_vals_ord = {

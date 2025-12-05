@@ -160,6 +160,7 @@ with tab_ord:
                 max_v       = def_vals_ord[key][4]
                 default     = def_vals_ord[key][5]
                 disp_name   = def_vals_ord[key][6]
+                frmt        = def_vals_ord[key][7]
 
                 # Set widget key
                 widget_key = f"num_input_{key}_ord"
@@ -188,6 +189,7 @@ with tab_ord:
                                                 min_value=min_v,
                                                 max_value=max_v,
                                                 on_change=reset_ord_plot,
+                                                format = frmt
                                                 )
 
                 # Inactive Input
@@ -223,6 +225,7 @@ with tab_ord:
                 max_v       = int_vals_ord[key][4]
                 default     = int_vals_ord[key][5]
                 disp_name   = int_vals_ord[key][6]
+                frmt        = int_vals_ord[key][7]
 
                 # Set widget key
                 widget_key = f"num_input_{key}_ord"
@@ -249,6 +252,7 @@ with tab_ord:
                                             min_value=min_v,
                                             max_value=max_v,
                                             on_change=reset_ord_plot,
+                                            format = frmt,
                                             )
                 
 
