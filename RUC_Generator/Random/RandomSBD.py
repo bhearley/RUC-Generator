@@ -109,7 +109,13 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps=50000, gamma=1.0,
                     )
                     total_overlap_area += A
         overlap_pct = total_overlap_area/(W*H)
-        return centers, overlap_pct
+
+        # check if equilibirum was reached
+        if np.all(np.linalg.norm(velocities, axis=1) < v_tol):
+            equilibirum = True
+        else:
+            equilibirum = False
+        return centers, overlap_pct, equilibirum
 
     # --- Voxelate microstructure with optional interface ---
     def voxelate_periodic_rve(centers, radius, W, H, RI=None, I=3):
@@ -177,7 +183,7 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps=50000, gamma=1.0,
             RI_val = RI
 
         # Run dynamics
-        centers_final, overlap_pct = soft_particle_md_periodic(
+        centers_final, overlap_pct, equilibirum = soft_particle_md_periodic(
             centers, radius, W, H, damping=damping, gamma=gamma, dt=dt,
             steps=steps, k=k, mass=mass, v_init=v_init, min_gap=min_gap, periodic=periodic
         )
@@ -196,7 +202,8 @@ def RandomSBD(W, H, N_fibers, VF, damping, k, dt, steps=50000, gamma=1.0,
             'F':1,
             'M':2,
             'I': I,
-            'Overlap': overlap_pct
+            'Overlap': overlap_pct,
+            'Equilibrium':equilibirum
         }
 
         masks.append((f'RVE {i+1}', mask, out))
