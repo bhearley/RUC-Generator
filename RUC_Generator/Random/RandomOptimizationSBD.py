@@ -38,7 +38,7 @@ def RandomOptimizationSBD(mask, rve_data, input_space, opt_settings, callback = 
     # Characterize the true microstructure
     VF = np.sum(mask == 1) / (len(mask) * len(mask[0]))
     VI = np.sum(mask == 3) / (len(mask) * len(mask[0]))
-    _, _, _, pdf, _, _, _ = RandomCharacterization(mask, opt_settings['nbins'])
+    _, _, _, _, pdf, _, _, _ = RandomCharacterization(mask, opt_settings['nbins'])
 
     # Define the input space
     # -- Defualt Values
@@ -142,7 +142,7 @@ def RandomOptimizationSBD(mask, rve_data, input_space, opt_settings, callback = 
             out_i = data[0][2]
 
             # Characterize the mask
-            _, _, _, pdf_i, _, _, _ = RandomCharacterization(mask_i, nbins=opt_settings['nbins'])
+            _, _, _, _, pdf_i, _, _, _ = RandomCharacterization(mask_i, nbins=opt_settings['nbins'])
 
             # Calculate mean squared error
             error = np.sqrt(np.sum((pdf_i - pdf)**2)) + out_i['Overlap']
@@ -233,7 +233,7 @@ def RandomOptimizationSBD(mask, rve_data, input_space, opt_settings, callback = 
                 out_j = data[0][2]
 
                 # Characterize the mask
-                _, _, _, pdf_j, _, _, _ = RandomCharacterization(mask_j, nbins=opt_settings['nbins'])
+                _, _, _, _, pdf_j, _, _, _ = RandomCharacterization(mask_j, nbins=opt_settings['nbins'])
                 
                 # Calculate mean squared error
                 error = np.sqrt(np.sum((pdf_j - pdf)**2)) + out_j['Overlap']
@@ -315,7 +315,7 @@ def RandomOptimizationSBD(mask, rve_data, input_space, opt_settings, callback = 
                     )
     best_mask = data[0][1]
     best_out = data[0][2]
-    _, _, _, pdf_best, _, _, _ = RandomCharacterization(best_mask, nbins=opt_settings['nbins'])
+    _, _, _, _, pdf_best, _, _, _ = RandomCharacterization(best_mask, nbins=opt_settings['nbins'])
     best_error = np.sqrt(np.sum((pdf_best - pdf)**2)) + best_out['Overlap']
 
     return best_mask, best_out, best_error

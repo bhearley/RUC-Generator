@@ -138,7 +138,22 @@ def RandomCharacterization(mask, nbins = 10):
         fc_triangles = np.where(bin_indices == 2)[0]  # dense
         mrc_triangles = np.where(bin_indices == 0)[0] # sparse
 
-        return mean_vf, iqr, bin_centers, pdf, bin_indices, fc_triangles, mrc_triangles
+        # Get cdf
+        cdf = np.cumsum(pdf)
+
+        # Compute the median
+        idx = np.searchsorted(cdf, 0.5)
+
+        if idx == 0:
+            median_vf = bin_centers[0]
+        else:
+            # Linear interpolation within the bin
+            cdf_low = cdf[idx-1]
+            cdf_high = cdf[idx]
+            fraction = (0.5 - cdf_low) / (cdf_high - cdf_low)
+            median_vf = bin_centers[idx-1] + fraction * (bin_centers[idx] - bin_centers[idx-1])
+
+        return mean_vf, median_vf, iqr, bin_centers, pdf, bin_indices, fc_triangles, mrc_triangles
 
     
     # ------------------------------
@@ -146,7 +161,7 @@ def RandomCharacterization(mask, nbins = 10):
     # ------------------------------
     label_map, centers = separate_fibers(mask)
     tri, local_vf = delaunay_and_vf(mask, centers)
-    mean_vf, iqr_vf, bin_centers, pdf, bin_indices, fc_triangles, mrc_triangles = identify_fc_mrc(mask, tri, centers, local_vf, nbins = nbins, n_smooth_iter=1)
+    mean_vf, median_vf, iqr_vf, bin_centers, pdf, bin_indices, fc_triangles, mrc_triangles = identify_fc_mrc(mask, tri, centers, local_vf, nbins = nbins, n_smooth_iter=1)
 
-    return mean_vf, iqr_vf, bin_centers, pdf, centers, tri, local_vf
+    return mean_vf, median_vf, iqr_vf, bin_centers, pdf, centers, tri, local_vf
 

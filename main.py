@@ -981,7 +981,7 @@ with tab_img:
                                     key='red_size_img',
                                     step=0.01,
                                     min_value=0.01,
-                                    max_value=1.,
+                                    max_value=None,
                                     on_change=on_red_size_change
                                     )
 
